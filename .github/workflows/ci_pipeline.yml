@@ -1,10 +1,21 @@
-name: Mediclaim-AI Agent Core CI Pipeline
+name: Mediclaim-AI Hybrid CI Pipeline
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  # 1. NIGHTLY TRIGGER: Automatically executes every single night at 02:00 UTC (07:30 AM IST)
+  schedule:
+    - cron: '0 2 * * *'
+    
+  # 2. MANUAL TRIGGER: Provides a Jenkins-style custom button to test on-demand
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Run Environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+        - development
+        - production
 
 jobs:
   verify-system-nodes:
@@ -15,7 +26,7 @@ jobs:
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
-        python-with-version: '3.10'
+        python-version: '3.10'
         
     - name: Install System Dependencies
       run: |
