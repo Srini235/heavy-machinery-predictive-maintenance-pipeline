@@ -33,4 +33,5 @@ async def evaluate_risk(payload: FraudInput):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    print("Launching Isolated Fraud Microservice Node on Port 8001...")
+    uvicorn.run("src.agents.fraud_predictor:app", host="127.0.0.1", port=8001, reload=True)
