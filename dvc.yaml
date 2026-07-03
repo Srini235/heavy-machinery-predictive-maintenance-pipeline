@@ -1,0 +1,8 @@
+stages:
+  train_model:
+    cmd: python src/train.py
+    deps:
+    - config/config.yaml
+    outs:
+    - models/fraud_xgboost.model
+    - data/insurance_claims.csv
