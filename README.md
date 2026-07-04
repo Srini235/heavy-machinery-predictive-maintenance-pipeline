@@ -1,10 +1,5 @@
-# reactive-telemetry-saga-orchestrator
-reactive telemetry multi agent orchestration system
+# mediclaim-ai-insurance-agent
 
-# Distributed Edge Telemetry & Saga Orchestrator
-
-A production-grade, distributed multi-agent microservice architecture built to 
-ingest, clean, and evaluate safety-critical connected vehicle telematics in real-time.
 
 ---
 ### Academic Submission Details
