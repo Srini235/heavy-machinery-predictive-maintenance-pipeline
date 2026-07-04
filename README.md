@@ -21,8 +21,8 @@ ingest, clean, and evaluate safety-critical connected vehicle telematics in real
 | Serial No | BITS ID | Student Name | Contribution % |
 | :---: | :---: | :--- | :--- |
 | 1 | 2024AC05744 | Srinivasan R | 100 |
-| 2 | 2024AC05372 | Tapas Trivedi | 100 |
-| 3 | 2024AC05328 | Jaspreet Singh | 100 |
-| 4 | 2024AC05275 | Anushile Agarwal | 100 |
+| 2 | 2024AC05100 | Vineet Kumar  | 100 |
+| 3 | 2024AD05482 | Vibhav Sharma | 100 |
+| 4 | 2024AC05064 | Aman Kushwah | 100 |
 
 </div>
