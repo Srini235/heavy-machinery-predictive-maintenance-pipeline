@@ -87,4 +87,4 @@ async def process_compliance_query(payload: RagQueryInput):
 if __name__ == "__main__":
     import uvicorn
     print("Launching Isolated Compliance RAG Microservice Node on Port 8002...")
-    uvicorn.run("src.agents.compliance_rag:app", host="127.0.0.1", port=8002, reload=True)
+    uvicorn.run("src.agents.compliance_rag:app", host="127.0.0.1", port=8002, reload=False)
