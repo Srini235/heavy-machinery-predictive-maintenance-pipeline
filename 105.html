@@ -17352,15 +17352,18 @@ and demonstrated below.</p>
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">joblib</span>
 <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">"."</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">src.security_layer</span> <span class="kn">import</span> <span class="p">(</span><span class="n">validate_sensor_payload</span><span class="p">,</span> <span class="n">ApiKeyAuthenticator</span><span class="p">,</span> <span class="n">RateLimiter</span><span class="p">,</span>
-    <span class="n">AuditTrail</span><span class="p">,</span> <span class="n">compute_file_sha256</span><span class="p">,</span> <span class="n">verify_model_integrity</span><span class="p">,</span> <span class="n">SecurityError</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">src.security_layer</span> <span class="kn">import</span> <span class="p">(</span><span class="n">validate_sensor_payload</span><span class="p">,</span> <span class="n">HYDRAULIC_BOUNDS</span><span class="p">,</span> <span class="n">ApiKeyAuthenticator</span><span class="p">,</span>
+    <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">AuditTrail</span><span class="p">,</span> <span class="n">compute_file_sha256</span><span class="p">,</span> <span class="n">verify_model_integrity</span><span class="p">,</span> <span class="n">SecurityError</span><span class="p">)</span>
 
-<span class="n">good</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"pressure"</span><span class="p">:</span><span class="mi">180</span><span class="p">,</span><span class="s2">"temperature"</span><span class="p">:</span><span class="mi">70</span><span class="p">,</span><span class="s2">"vibration"</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span><span class="s2">"flow_rate"</span><span class="p">:</span><span class="mi">85</span><span class="p">,</span><span class="s2">"oil_debris"</span><span class="p">:</span><span class="mi">60</span><span class="p">}</span>
+<span class="c1"># a valid per-cycle hydraulic reading (same 9-sensor schema the model + API use)</span>
+<span class="n">good</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"operating_hours"</span><span class="p">:</span><span class="mi">900</span><span class="p">,</span><span class="s2">"pressure_mean_bar"</span><span class="p">:</span><span class="mi">165</span><span class="p">,</span><span class="s2">"pressure_std_bar"</span><span class="p">:</span><span class="mf">6.5</span><span class="p">,</span><span class="s2">"flow_mean_lpm"</span><span class="p">:</span><span class="mf">7.2</span><span class="p">,</span>
+        <span class="s2">"oil_temp_mean_c"</span><span class="p">:</span><span class="mi">68</span><span class="p">,</span><span class="s2">"vibration_rms_mms"</span><span class="p">:</span><span class="mf">3.5</span><span class="p">,</span><span class="s2">"motor_power_kw"</span><span class="p">:</span><span class="mi">18</span><span class="p">,</span>
+        <span class="s2">"pump_speed_mean_rpm"</span><span class="p">:</span><span class="mi">1400</span><span class="p">,</span><span class="s2">"cooling_efficiency_pct"</span><span class="p">:</span><span class="mi">78</span><span class="p">}</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">"1. INPUT VALIDATION"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"   valid payload accepted:"</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">validate_sensor_payload</span><span class="p">(</span><span class="n">good</span><span class="p">)))</span>
-<span class="k">for</span> <span class="n">bad</span><span class="p">,</span> <span class="n">why</span> <span class="ow">in</span> <span class="p">[({</span><span class="o">**</span><span class="n">good</span><span class="p">,</span><span class="s2">"pressure"</span><span class="p">:</span><span class="mi">99999</span><span class="p">},</span> <span class="s2">"out-of-range pressure"</span><span class="p">),</span>
-                 <span class="p">({</span><span class="o">**</span><span class="n">good</span><span class="p">,</span><span class="s2">"temperature"</span><span class="p">:</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)},</span> <span class="s2">"NaN temperature"</span><span class="p">)]:</span>
-    <span class="k">try</span><span class="p">:</span> <span class="n">validate_sensor_payload</span><span class="p">(</span><span class="n">bad</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   valid payload accepted:"</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">validate_sensor_payload</span><span class="p">(</span><span class="n">good</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">HYDRAULIC_BOUNDS</span><span class="p">)))</span>
+<span class="k">for</span> <span class="n">bad</span><span class="p">,</span> <span class="n">why</span> <span class="ow">in</span> <span class="p">[({</span><span class="o">**</span><span class="n">good</span><span class="p">,</span><span class="s2">"pressure_mean_bar"</span><span class="p">:</span><span class="mi">99999</span><span class="p">},</span> <span class="s2">"out-of-range pressure"</span><span class="p">),</span>
+                 <span class="p">({</span><span class="o">**</span><span class="n">good</span><span class="p">,</span><span class="s2">"oil_temp_mean_c"</span><span class="p">:</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)},</span> <span class="s2">"NaN oil temperature"</span><span class="p">)]:</span>
+    <span class="k">try</span><span class="p">:</span> <span class="n">validate_sensor_payload</span><span class="p">(</span><span class="n">bad</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">HYDRAULIC_BOUNDS</span><span class="p">)</span>
     <span class="k">except</span> <span class="n">SecurityError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   BLOCKED </span><span class="si">{</span><span class="n">why</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">"2. API-KEY AUTHENTICATION"</span><span class="p">)</span>
@@ -17415,8 +17418,8 @@ and demonstrated below.</p>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
 <pre>1. INPUT VALIDATION
    valid payload accepted: True
-   BLOCKED out-of-range pressure: field &#39;pressure&#39;=99999 out of safe range [80.0, 260.0]
-   BLOCKED NaN temperature: field &#39;temperature&#39; is NaN or infinite
+   BLOCKED out-of-range pressure: field &#39;pressure_mean_bar&#39;=99999 out of safe range [80.0, 260.0]
+   BLOCKED NaN oil temperature: field &#39;oil_temp_mean_c&#39; is NaN or infinite
 2. API-KEY AUTHENTICATION
    valid key accepted: True
    BLOCKED invalid key: invalid API key
@@ -17476,11 +17479,16 @@ pattern. Swapping in ChromaDB changes only the retriever class, not the interfac
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Knowledge base loaded: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">kb</span><span class="p">)</span><span class="si">}</span><span class="s2"> maintenance procedures</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
 <span class="n">advisor</span> <span class="o">=</span> <span class="n">MaintenanceAdvisor</span><span class="p">()</span>
 
-<span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"pump_leakage"</span><span class="p">,</span> <span class="s2">"cooler_condition"</span><span class="p">,</span> <span class="s2">"valve_condition"</span><span class="p">,</span> <span class="s2">"accumulator_pressure"</span><span class="p">]:</span>
-    <span class="n">top</span> <span class="o">=</span> <span class="n">advisor</span><span class="o">.</span><span class="n">advise</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="c1"># first component: full RAG (retrieve -&gt; LLM generate); rest: retrieval only (keeps this fast)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">component</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="s2">"pump_leakage"</span><span class="p">,</span> <span class="s2">"cooler_condition"</span><span class="p">,</span> <span class="s2">"valve_condition"</span><span class="p">,</span> <span class="s2">"accumulator_pressure"</span><span class="p">]):</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="n">advisor</span><span class="o">.</span><span class="n">advise</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">use_llm</span><span class="o">=</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"MODEL FLAG: </span><span class="si">{</span><span class="n">component</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  -&gt; retrieved procedure : </span><span class="si">{</span><span class="n">top</span><span class="p">[</span><span class="s1">'procedure'</span><span class="p">]</span><span class="si">}</span><span class="s2">  (relevance </span><span class="si">{</span><span class="n">top</span><span class="p">[</span><span class="s1">'relevance'</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  -&gt; guidance            : </span><span class="si">{</span><span class="n">top</span><span class="p">[</span><span class="s1">'guidance'</span><span class="p">][:</span><span class="mi">120</span><span class="p">]</span><span class="si">}</span><span class="s2">...</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">top</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"llm_recommendation"</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  -&gt; LLM recommendation  : </span><span class="si">{</span><span class="n">top</span><span class="p">[</span><span class="s1">'llm_recommendation'</span><span class="p">][:</span><span class="mi">170</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  -&gt; guidance            : </span><span class="si">{</span><span class="n">top</span><span class="p">[</span><span class="s1">'guidance'</span><span class="p">][:</span><span class="mi">110</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">()</span>
 </pre></div>
 
      </div>
@@ -17506,19 +17514,19 @@ pattern. Swapping in ChromaDB changes only the retriever class, not the interfac
 
 MODEL FLAG: pump_leakage
   -&gt; retrieved procedure : Internal pump leakage  (relevance 0.618)
-  -&gt; guidance            : Internal pump leakage. Increasing internal leakage in the main hydraulic pump reduces volumetric efficiency and flow rat...
+  -&gt; LLM recommendation  : Measure the case‑drain flow to quantify internal pump leakage and compare it to the manufacturer’s allowable limit. If the flow exceeds that limit, inspect the swash plat...
 
 MODEL FLAG: cooler_condition
   -&gt; retrieved procedure : Cooler condition degradation  (relevance 0.583)
-  -&gt; guidance            : Cooler condition degradation. When the hydraulic oil cooler efficiency drops, oil operating temperature rises and viscos...
+  -&gt; guidance            : Cooler condition degradation. When the hydraulic oil cooler efficiency drops, oil operating temperature rises ...
 
 MODEL FLAG: valve_condition
   -&gt; retrieved procedure : Valve condition and switching faults  (relevance 0.597)
-  -&gt; guidance            : Valve condition and switching faults. A worn or sticking directional control valve causes slow or erratic actuator respo...
+  -&gt; guidance            : Valve condition and switching faults. A worn or sticking directional control valve causes slow or erratic actu...
 
 MODEL FLAG: accumulator_pressure
   -&gt; retrieved procedure : Hydraulic accumulator pressure loss  (relevance 0.725)
-  -&gt; guidance            : Hydraulic accumulator pressure loss. A gas-charged accumulator that loses pre-charge pressure cannot dampen pressure spi...
+  -&gt; guidance            : Hydraulic accumulator pressure loss. A gas-charged accumulator that loses pre-charge pressure cannot dampen pr...
 
 </pre>
 </div>

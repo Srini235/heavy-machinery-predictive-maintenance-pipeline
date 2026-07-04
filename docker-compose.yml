@@ -9,6 +9,11 @@ services:
     container_name: hydraulics_api
     ports:
       - "8000:8000"
+    environment:
+      # optional — enables the RAG advisor's LLM generation when set on the host:
+      #   OPENROUTER_API_KEY=sk-or-... docker compose up
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemma-4-26b-a4b-it:free}
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 10s

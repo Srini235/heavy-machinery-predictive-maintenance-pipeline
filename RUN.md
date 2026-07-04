@@ -39,9 +39,8 @@ docker compose down          # Ctrl+C first if running in the foreground
 docker compose up --build
 ```
 
-> Note: use `docker-compose.yml` (with a hyphen) — that is the current file. The old
-> `docker_compose.yml` (underscore) is from the deprecated insurance MVP and is no longer used;
-> you can ignore or delete it.
+> To enable the LLM recommendation inside Docker, set the key on the host first:
+> `OPENROUTER_API_KEY=sk-or-... docker compose up --build` (compose passes it through to the backend).
 
 ---
 

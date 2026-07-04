@@ -63,19 +63,24 @@ answers it.
 | What should the technician do? | “What repair procedure fits this fault?” | Semantic retrieval (RAG) | On demand |
 
 **Model choice and justification — Random Forest.**
-Several approaches were considered:
-- *Threshold rules* — transparent but too rigid for multi-sensor interactions and easily fooled by
-  noise.
-- *Deep neural network* — powerful but data-hungry, slower to infer, and hard to explain to a
-  technician.
-- **Random Forest (selected)** — strong accuracy on tabular sensor data, fast single-sample
-  inference (well under the 100 ms budget), naturally robust to noisy/missing values, and
-  **self-explaining** through feature importances. Explainability was the deciding factor: a
-  technician must see *why* a machine was flagged, not accept a black-box verdict.
+Several approaches were considered (Logistic Regression, Gradient Boosted Trees, Random Forest):
+- *Logistic Regression* — interpretable but weaker on multi-sensor non-linear interactions.
+- *Gradient Boosted Trees* — high accuracy but worse interpretability and inference latency.
+- **Random Forest (selected)** — best joint balance of accuracy, interpretability (feature
+  importances) and inference latency. Explainability was the deciding factor: a technician must see
+  *why* a machine was flagged, not accept a black-box verdict.
 
-**Retrieval component.** When a component is flagged, a Retrieval-Augmented Generation (RAG) step
-fetches the matching repair procedure from a maintenance-manual knowledge base by semantic
-similarity, turning a prediction into actionable guidance.
+**Two models** are trained, one per PredictionGoal:
+- **Multi-output condition model** — a `MultiOutputClassifier(RandomForest)` predicting
+  `cooler_condition`, `valve_condition`, `pump_leakage`, `accumulator_pressure` together (the
+  **batch** use case).
+- **Stability model** — a smaller/faster `RandomForest` predicting `stability_flag` (the
+  **real-time** use case, kept lightweight for the < 100 ms budget).
+
+**Retrieval + generation.** When a component is flagged, a Retrieval-Augmented Generation (RAG)
+step retrieves the matching repair procedure from a maintenance-manual knowledge base by semantic
+similarity, then optionally passes it to an **LLM (via OpenRouter)** which writes a concise,
+grounded recommendation for the technician (falls back to the retrieved text offline).
 
 ---
 
@@ -85,19 +90,22 @@ Real hydraulic sensor streams are noisy — dust, vibration and electrical inter
 occasional missing or spurious readings — so the data must be prepared before modelling. This is
 implemented as a **Pipe-and-Filter** pipeline.
 
-**Data sources.** Onboard hydraulic sensors per work-cycle: pressure (bar), temperature (°C),
-vibration (mm/s RMS), flow rate (L/min), oil debris (ppm). Because real fleet logs are proprietary,
-a **realistic synthetic generator** reproduces the physical relationships (heat, vibration and
-debris rising with duty intensity, with a plausible failure relationship) so the full system can be
-built and tested. The knowledge base for RAG is a maintenance manual document.
+**Data sources.** Onboard hydraulic sensors summarised per work-cycle (dataset:
+`data/hydraulic_fleet_telemetry.csv`, 40 machines × 250 cycles = **10,000 rows**):
+`operating_hours`, `pressure_mean_bar`, `pressure_std_bar`, `flow_mean_lpm`, `oil_temp_mean_c`,
+`vibration_rms_mms`, `motor_power_kw`, `pump_speed_mean_rpm`, `cooling_efficiency_pct`, plus the
+categorical `machine_type` (Excavator / Telehandler / Backhoe Loader). Labels: the four component
+conditions + `stability_flag`. Because real OEM fleet logs are proprietary, a **realistic synthetic
+generator** reproduces the physical relationships (a latent per-machine wear rate driving correlated
+degradation) — modelled on the UCI *Condition Monitoring of Hydraulic Systems* dataset. The RAG
+knowledge base is a maintenance-manual document.
 
 **Preparation stages (filters).**
 1. **Ingest** — acquire raw per-cycle sensor readings.
-2. **Clean** — detect and repair missing/glitched values (median imputation), as real dusty sensors
-   require.
-3. **Aggregate** — derive cross-sensor cycle summaries (e.g. thermal-load ratio, vibration-per-
-   pressure) that expose degradation.
-4. **Feature** — emit the final feature matrix for the model.
+2. **Clean** — median-impute missing/glitched values (≈3% injected to mimic sensor dropout).
+3. **Encode/Normalize** — `StandardScaler` on numeric features + `OneHotEncoder` on `machine_type`
+   (one `ColumnTransformer`, reused in training and serving to avoid train/serve skew).
+4. **Feature** — emit the final model-ready feature matrix (`cycle_features`).
 
 **Quality of data controls.** Range validation rejects physically-impossible readings before they
 reach the model (also a security control), and the pipeline is explicitly tested against 15%
@@ -132,14 +140,20 @@ dimensions.
 
 Every element above is demonstrated and executed in `105.ipynb`.
 
-| GR4ML element | Where it is realised |
+| GR4ML element | Where it is realised in `105.ipynb` |
 |:--|:--|
-| Business View stakeholders/goals | Notebook GR4ML markdown; served by Real-time + Batch paths |
-| Analytics Design — Random Forest | Section 2 (training, 5-fold CV, metrics) |
-| Analytics Design — RAG retrieval | Section 10 RAG Maintenance Advisor |
-| Data Preparation — Pipe-and-Filter | Section 1 (Ingest → Clean → Aggregate → Feature) |
-| QR1 Robustness | Section 3 (15% corruption test) |
-| QR2 Latency | Section 4 (inference timing) |
-| QR3 Explainability | Section 5 (feature importances, per-machine factors) |
-| Security (extra QR) | Section 9 + `src/security_layer.py` |
+| Business View (Actor/StrategicGoal/DecisionGoal/…) | Section 2 (graphviz diagram) |
+| Analytics Design View (PredictionGoals, Algorithms, SoftGoals) | Section 3 (graphviz diagram) |
+| Data Preparation View (Entities, Tasks, Operators) | Section 4 + Section 8 (EDA/pipeline code) |
+| Top-3 Quality Requirements (SMART) | Section 5 |
+| System architecture (ML + non-ML) | Section 6 (`architecture_diagram.png`) |
+| Multi-output condition model + stability model | Section 9 (training, metrics) |
+| QR1 Robustness (15% corruption) | Section 9 robustness check |
+| Model Registry pattern | Section 10 |
+| Batch vs Real-time serving pattern | Section 11 |
+| Drift monitoring | Section 12 |
+| Security (4th QR) | Section 14 + `src/security_layer.py` |
+| RAG advisor (retrieval + OpenRouter LLM) | Section 15 + `src/maintenance_advisor.py` |
+| Architectural patterns (Pipe-and-Filter + Microservices) | Section 16 |
+| Deployed web application | Section 17 + `frontend/` + `api_server.py` |
 | System architecture (ML + non-ML) | Architecture diagram cell / `architecture_diagram.png` |

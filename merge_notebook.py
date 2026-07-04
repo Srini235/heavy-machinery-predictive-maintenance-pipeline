@@ -17,8 +17,15 @@ import contextlib
 import nbformat as nbf
 
 REPO = os.path.dirname(os.path.abspath(__file__))
-MASTER = os.path.join(os.path.dirname(REPO),
-                      "GroupXX_AssignmentI_MobileHydraulics_PredictiveMaintenance 1.ipynb")
+# The master notebook lives one level up (outside the repo). 105.ipynb / 105.html are already
+# committed, so you only need to re-run this if the master notebook or the appended sections change.
+# Override the location with the MASTER_NOTEBOOK env var if it sits elsewhere.
+MASTER = os.getenv("MASTER_NOTEBOOK", os.path.join(
+    os.path.dirname(REPO), "GroupXX_AssignmentI_MobileHydraulics_PredictiveMaintenance 1.ipynb"))
+if not os.path.exists(MASTER):
+    raise SystemExit(f"Master notebook not found at {MASTER}\n"
+                     "105.ipynb is already committed — you usually don't need to re-run this. "
+                     "If you do, set MASTER_NOTEBOOK to the master notebook path.")
 
 nb = nbf.read(MASTER, as_version=4)
 
@@ -119,15 +126,18 @@ and demonstrated below.
 
 SECURITY_DEMO = r'''import sys, os, joblib
 sys.path.insert(0, ".")
-from src.security_layer import (validate_sensor_payload, ApiKeyAuthenticator, RateLimiter,
-    AuditTrail, compute_file_sha256, verify_model_integrity, SecurityError)
+from src.security_layer import (validate_sensor_payload, HYDRAULIC_BOUNDS, ApiKeyAuthenticator,
+    RateLimiter, AuditTrail, compute_file_sha256, verify_model_integrity, SecurityError)
 
-good = {"pressure":180,"temperature":70,"vibration":4,"flow_rate":85,"oil_debris":60}
+# a valid per-cycle hydraulic reading (same 9-sensor schema the model + API use)
+good = {"operating_hours":900,"pressure_mean_bar":165,"pressure_std_bar":6.5,"flow_mean_lpm":7.2,
+        "oil_temp_mean_c":68,"vibration_rms_mms":3.5,"motor_power_kw":18,
+        "pump_speed_mean_rpm":1400,"cooling_efficiency_pct":78}
 print("1. INPUT VALIDATION")
-print("   valid payload accepted:", bool(validate_sensor_payload(good)))
-for bad, why in [({**good,"pressure":99999}, "out-of-range pressure"),
-                 ({**good,"temperature":float("nan")}, "NaN temperature")]:
-    try: validate_sensor_payload(bad)
+print("   valid payload accepted:", bool(validate_sensor_payload(good, bounds=HYDRAULIC_BOUNDS)))
+for bad, why in [({**good,"pressure_mean_bar":99999}, "out-of-range pressure"),
+                 ({**good,"oil_temp_mean_c":float("nan")}, "NaN oil temperature")]:
+    try: validate_sensor_payload(bad, bounds=HYDRAULIC_BOUNDS)
     except SecurityError as e: print(f"   BLOCKED {why}: {e}")
 
 print("2. API-KEY AUTHENTICATION")
@@ -186,11 +196,16 @@ kb = load_knowledge_base()
 print(f"Knowledge base loaded: {len(kb)} maintenance procedures\n")
 advisor = MaintenanceAdvisor()
 
-for component in ["pump_leakage", "cooler_condition", "valve_condition", "accumulator_pressure"]:
-    top = advisor.advise(component, k=1)[0]
+# first component: full RAG (retrieve -> LLM generate); rest: retrieval only (keeps this fast)
+for i, component in enumerate(["pump_leakage", "cooler_condition", "valve_condition", "accumulator_pressure"]):
+    top = advisor.advise(component, k=1, use_llm=(i == 0))[0]
     print(f"MODEL FLAG: {component}")
     print(f"  -> retrieved procedure : {top['procedure']}  (relevance {top['relevance']})")
-    print(f"  -> guidance            : {top['guidance'][:120]}...\n")
+    if top.get("llm_recommendation"):
+        print(f"  -> LLM recommendation  : {top['llm_recommendation'][:170]}...")
+    else:
+        print(f"  -> guidance            : {top['guidance'][:110]}...")
+    print()
 '''
 new_cells.append(code_with_stream(RAG_DEMO))
 
