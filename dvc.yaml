@@ -1,0 +1,10 @@
+stages:
+  train_models:
+    cmd: python train_and_save.py
+    deps:
+      - train_and_save.py
+      - data/hydraulic_fleet_telemetry.csv
+      - src/core/model_registry.py
+      - src/security_layer.py
+    outs:
+      - model_registry/
