@@ -12,6 +12,7 @@ Docs: http://localhost:8000/docs
 """
 import json
 from pathlib import Path
+import os
 
 import joblib
 import pandas as pd

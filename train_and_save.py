@@ -67,6 +67,34 @@ TARGETS = ["cooler_condition", "valve_condition", "pump_leakage", "accumulator_p
 RT_TARGET = "stability_flag"
 NOISY_COLS = ["pressure_mean_bar", "flow_mean_lpm", "oil_temp_mean_c", "vibration_rms_mms"]
 
+def _log_mlflow_run(condition_path: Path, stability_path: Path,
+                    schema_path: Path, cond_metrics: dict, rt_acc: float) -> None:
+    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
+    if not mlflow_uri:
+        return
+
+    try:
+        import mlflow
+        import mlflow.sklearn
+    except ImportError:
+        print("MLflow is not installed; skipping MLflow logging")
+        return
+
+    experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", "hydraulics-predictive-maintenance")
+    mlflow.set_tracking_uri(mlflow_uri)
+    mlflow.set_experiment(experiment_name)
+    with mlflow.start_run(run_name=os.getenv("MLFLOW_RUN_NAME", "train_and_save")):
+        mlflow.log_param("num_numeric_features", len(NUMERIC_FEATURES))
+        mlflow.log_param("num_categorical_features", len(CATEGORICAL_FEATURES))
+        mlflow.log_param("num_targets", len(TARGETS))
+        mlflow.log_metric("stability_accuracy", float(rt_acc))
+        for target, metrics in cond_metrics.items():
+            mlflow.log_metric(f"accuracy_{target}", float(metrics["accuracy"]))
+            mlflow.log_metric(f"macro_f1_{target}", float(metrics["macro_f1"]))
+        mlflow.log_artifact(str(condition_path), artifact_path="model_registry")
+        mlflow.log_artifact(str(stability_path), artifact_path="model_registry")
+        mlflow.log_artifact(str(schema_path), artifact_path="model_registry")
+
 
 def main(force: bool = False):
     REGISTRY.mkdir(parents=True, exist_ok=True)
@@ -187,32 +215,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(force=args.force)
-
-
-def _log_mlflow_run(condition_path: Path, stability_path: Path,
-                    schema_path: Path, cond_metrics: dict, rt_acc: float) -> None:
-    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
-    if not mlflow_uri:
-        return
-
-    try:
-        import mlflow
-        import mlflow.sklearn
-    except ImportError:
-        print("MLflow is not installed; skipping MLflow logging")
-        return
-
-    experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", "hydraulics-predictive-maintenance")
-    mlflow.set_tracking_uri(mlflow_uri)
-    mlflow.set_experiment(experiment_name)
-    with mlflow.start_run(run_name=os.getenv("MLFLOW_RUN_NAME", "train_and_save")):
-        mlflow.log_param("num_numeric_features", len(NUMERIC_FEATURES))
-        mlflow.log_param("num_categorical_features", len(CATEGORICAL_FEATURES))
-        mlflow.log_param("num_targets", len(TARGETS))
-        mlflow.log_metric("stability_accuracy", float(rt_acc))
-        for target, metrics in cond_metrics.items():
-            mlflow.log_metric(f"accuracy_{target}", float(metrics["accuracy"]))
-            mlflow.log_metric(f"macro_f1_{target}", float(metrics["macro_f1"]))
-        mlflow.log_artifact(str(condition_path), artifact_path="model_registry")
-        mlflow.log_artifact(str(stability_path), artifact_path="model_registry")
-        mlflow.log_artifact(str(schema_path), artifact_path="model_registry")
