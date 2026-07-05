@@ -31,6 +31,7 @@ Stepwise architecture / design notes (implemented here):
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import joblib
@@ -138,6 +139,8 @@ def main(force: bool = False):
     stability_path = REGISTRY / "stability_model.joblib"
     schema_path = REGISTRY / "schema.json"
 
+    # TODO: write artifacts atomically, e.g. save to a temp file and rename to avoid
+    # partial writes on crash / interruption.
     joblib.dump(condition_model, condition_path)
     joblib.dump(stability_model, stability_path)
 
@@ -152,6 +155,8 @@ def main(force: bool = False):
         "condition_metrics": cond_metrics,
         "stability_accuracy": round(float(rt_acc), 4),
     }
+    # TODO: consider writing a detached signature file for schema.json to support
+    # stronger artifact authenticity guarantees in addition to checksum registration.
     schema_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
 
     registry = ModelRegistry(REGISTRY)

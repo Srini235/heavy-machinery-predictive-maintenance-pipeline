@@ -84,12 +84,8 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 	- File: `tests/test_predictive_maintenance.py` — unit and integration tests
 	  validating the pipeline and inference behaviors.
 
-If you'd like, I can create a dedicated `DESIGN.md` with diagrams and links to
-the specific code sections; want that added to the repo?
-
-## Quality requirements (measured in the notebook)
-1. **Robustness** — accuracy retained under 15% corrupted sensor data
-2. **Low latency** — real-time inference < 100 ms
+See `DESIGN.md` for a short architecture summary, implemented patterns, security
+improvements, and open checklist items for future hardening.
 3. **Explainability** — every flag names its top contributing sensors
 4. **Security** — input validation, API-key auth, model integrity, audit logging, rate limiting
 
