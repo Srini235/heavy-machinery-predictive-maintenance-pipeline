@@ -47,6 +47,46 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 - **Architectural:** Pipe-and-Filter (data pipeline) · Microservices (decoupled services)
 - **Design / MLOps:** Model Registry · Batch-vs-Real-time Serving
 
+## Stepwise Architecture & Implementation (where to find it)
+
+1. Data ingestion & layout
+	- File: `data/hydraulic_fleet_telemetry.csv`
+	- Notes: dataset is a one-row-per-cycle synthetic telemetry export used for training.
+
+2. Training pipeline (idempotent)
+	- File: `train_and_save.py`
+	- Steps implemented:
+	  - Idempotency guard checks `model_registry/index.json` and artifact sha256s.
+	  - Loads data only when retraining is required (or `--force` used).
+	  - Builds a `ColumnTransformer` + `Pipeline` for preprocessing and model.
+	  - Trains multi-output condition model + stability classifier.
+	  - Saves artifacts to `model_registry/` and registers them.
+
+3. Model registry (artifact management)
+	- File: `src/core/model_registry.py`
+	- Notes: lightweight on-disk registry mapping filenames -> sha256 + metadata.
+
+4. Security & inference checks
+	- File: `src/security/security_layer.py` and facade `src/security_layer.py`
+	- Responsibilities: API-key auth, input validation, model integrity verification,
+	  audit logging and rate limiting. The facade keeps imports stable for callers.
+
+5. Serving / API
+	- File: `api_server.py` (wrapper) and `src/api/server.py`
+	- Behavior: On startup the API validates model files against the registry and
+	  refuses to start if checksums do not match, ensuring deployment integrity.
+
+6. Observability
+	- Optional MLflow logging is included in `train_and_save.py` when
+	  `MLFLOW_TRACKING_URI` is set; metrics and artifacts are recorded per run.
+
+7. Tests
+	- File: `tests/test_predictive_maintenance.py` — unit and integration tests
+	  validating the pipeline and inference behaviors.
+
+If you'd like, I can create a dedicated `DESIGN.md` with diagrams and links to
+the specific code sections; want that added to the repo?
+
 ## Quality requirements (measured in the notebook)
 1. **Robustness** — accuracy retained under 15% corrupted sensor data
 2. **Low latency** — real-time inference < 100 ms

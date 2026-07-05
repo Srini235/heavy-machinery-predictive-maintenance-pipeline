@@ -1,4 +1,32 @@
-"""Train the hydraulic predictive-maintenance models and save them for the API."""
+"""Train the hydraulic predictive-maintenance models and save them for the API.
+
+Stepwise architecture / design notes (implemented here):
+
+1. Repository layout & separation of concerns
+    - `data/` contains input CSVs; `model_registry/` holds trained artifacts and an
+      `index.json` artifact registry. This module implements the training stage only.
+
+2. Idempotent training pattern
+    - Before loading large datasets or re-training, the script checks the registry
+      (`model_registry/index.json`) and artifact checksums. If artifacts exist and
+      checksums match, training is skipped unless `--force` is passed.
+
+3. Pipeline / preprocessor (Pipe-and-Filter)
+    - A `ColumnTransformer` + `Pipeline` separates preprocessing from model logic,
+      enabling consistent transform reuse at inference time.
+
+4. Model registry pattern
+    - Artifacts are saved under `model_registry/` and registered with a sha256
+      checksum via `ModelRegistry`. This enables runtime integrity checks by the API.
+
+5. Logging & observability
+    - Optional MLflow logging is available if `MLFLOW_TRACKING_URI` is configured.
+
+6. Single responsibility and testability
+    - This module exposes `main(force: bool=False)` for programmatic invocation and
+      a CLI wrapper for convenience. Each step is isolated to make unit-testing
+      (dataset missing, idempotency, registration) straightforward.
+"""
 
 from __future__ import annotations
 
