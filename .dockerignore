@@ -1,0 +1,16 @@
+# keep the backend build context small + reproducible
+venv/
+.venv/
+__pycache__/
+*.pyc
+mlruns/
+mlflow.db
+frontend/
+node_modules/
+*.ipynb
+105.html
+docs/
+.git/
+.github/
+tests/
+build_notebook.py

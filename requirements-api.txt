@@ -1,0 +1,8 @@
+# Slim dependencies for the FastAPI backend (api_server.py) — no notebook/Jupyter.
+fastapi==0.115.0
+uvicorn==0.30.6
+scikit-learn==1.7.2
+pandas==2.1.4
+numpy==1.26.4
+joblib==1.3.2
+pydantic==2.9.2

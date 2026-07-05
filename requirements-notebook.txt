@@ -1,0 +1,22 @@
+# Dependencies for the Predictive-Maintenance notebook (105.ipynb) + tests.
+# Group 105 — Aman Kushwah. Lightweight, offline, no API keys or GPU required.
+#
+# Usage:
+#   python3 -m venv venv
+#   source venv/bin/activate         # Windows: venv\Scripts\activate
+#   pip install -r requirements-notebook.txt
+
+pandas==2.1.4
+numpy==1.26.4
+scikit-learn==1.7.2
+matplotlib==3.6.3
+seaborn==0.13.2
+joblib==1.3.2
+nbconvert==6.5.3
+pytest==7.4.4
+# optional: renders the GR4ML / architecture diagrams in the notebook
+# (needs the system 'graphviz' binary too: sudo apt install graphviz)
+graphviz>=0.20
+# notebook UI (any recent version is fine)
+notebook>=7.0
+ipykernel>=6.0

@@ -1,38 +1,28 @@
-name: Mediclaim-AI Hybrid CI Pipeline
+name: Predictive Maintenance CI
 
 on:
-  # 1. NIGHTLY TRIGGER: Automatically executes every single night at 02:00 UTC (07:30 AM IST)
-  schedule:
-    - cron: '0 2 * * *'
-    
-  # 2. MANUAL TRIGGER: Provides a Jenkins-style custom button to test on-demand
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Target Run Environment'
-        required: true
-        default: 'development'
-        type: choice
-        options:
-        - development
-        - production
 
 jobs:
-  verify-system-nodes:
+  test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
-        
-    - name: Install System Dependencies
+        python-version: '3.11'
+
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        
-    - name: Run Pipeline Integrity Integration Test Suite
+        pip install -r requirements-notebook.txt
+
+    - name: Run test suite
       run: |
-        python -m pytest
+        python -m pytest tests/test_predictive_maintenance.py -q
