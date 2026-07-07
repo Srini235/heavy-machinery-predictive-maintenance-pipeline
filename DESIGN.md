@@ -60,4 +60,4 @@ The project code is intentionally folder-name independent. The important require
 
 `train_and_save.py` detects the repository root by walking upward from its own file location and loads `data/hydraulic_fleet_telemetry.csv` from there. `api_server.py` now resolves the `model_registry/` path using `Path(__file__).resolve().parent`, so it does not depend on the current working directory.
 
-The README examples still use `cd mediclaim-ai-insurance-agent` because that is the local workspace path in this review copy, but the code itself works from any root folder name.
+The README and RUN examples use `cd heavy-machinery-predictive-maintenance-pipeline` (the repository name), but the code itself works from any root folder name.

@@ -21,7 +21,7 @@ Screenshots are in `docs/screenshots/` (`app_input.png`, `app_prediction.png`).
 
 **Terminal 1 — backend (port 8000):**
 ```bash
-cd mediclaim-ai-insurance-agent
+cd heavy-machinery-predictive-maintenance-pipeline
 
 # one-time: venv + deps
 python3 -m venv venv
@@ -42,7 +42,7 @@ uvicorn api_server:app --reload --port 8000
 
 **Terminal 2 — frontend (port 5173):**
 ```bash
-cd mediclaim-ai-insurance-agent/frontend
+cd heavy-machinery-predictive-maintenance-pipeline/frontend
 npm install          # one-time
 npm run dev
 #   open http://localhost:5173

@@ -1,7 +1,7 @@
 # Predictive Maintenance of Mobile Hydraulic Systems
 
-> Repository name is `mediclaim-ai-insurance-agent` (retained from the original repo); the
-> project topic is **Predictive Maintenance of Mobile Hydraulics**.
+> Repository: **`heavy-machinery-predictive-maintenance-pipeline`** — project topic is
+> **Predictive Maintenance of Mobile Hydraulic Systems**.
 
 An ML-based system that reads hydraulic sensor data (pressure, temperature, vibration, flow,
 oil debris) from a fleet of excavators and predicts which machine needs maintenance **only when
@@ -32,15 +32,15 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 
 | Area | Files |
 | :--- | :--- |
-| **Solution notebook** (model, patterns, security, RAG — executed) | `105.ipynb`, `105.html` |
-| **GR4ML report** (Objective 1) | `GR4ML_REPORT.md` |
-| **Architecture diagram** (Objective 2, ML + non-ML) | `architecture_diagram.png` |
+| **Solution notebook** (model, patterns, security, RAG — executed) | `notebook/105.ipynb` |
+| **GR4ML report** (Objective 1) | `readme_others/GR4ML_REPORT.md` |
+| **Architecture diagram** (Objective 2, ML + non-ML) | `docs/screenshots/architecture_diagram.png` |
 | **Web app** — React (shadcn/ui) frontend + FastAPI backend | `frontend/`, `api_server.py`, `train_and_save.py` |
 | **Reusable modules** | `src/security_layer.py`, `src/maintenance_advisor.py` |
 | **Knowledge base** (RAG) | `data/hydraulic_maintenance_manual.md` |
 | **Tests** (18 passing) | `tests/test_predictive_maintenance.py` |
 | **Docker pipeline** | `Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml` |
-| **Docs** | `RUN.md`, `FRONTEND_README.md`, `AMAN_CONTRIBUTION.md` |
+| **Docs** | `readme_others/RUN.md`, `readme_others/FRONTEND_README.md` |
 | **Screenshots** | `docs/screenshots/` |
 
 ## Architecture patterns
@@ -86,13 +86,17 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 
 See `DESIGN.md` for a short architecture summary, implemented patterns, security
 improvements, and open checklist items for future hardening.
+
+## Quality requirements
+1. **Robustness to noisy data** — ≥ 95% of clean accuracy retained under 15% corrupted readings
+2. **Low latency** — safety-critical stability inference in under 100 ms
 3. **Explainability** — every flag names its top contributing sensors
 4. **Security** — input validation, API-key auth, model integrity, audit logging, rate limiting
 
 ## How to run
 This project is folder-name independent for runtime execution. The code imports `src` as a package and uses absolute root-relative paths in the backend, so you can run commands from the repository root regardless of the parent folder name.
 
-See **[RUN.md](RUN.md)** for full steps. Quick start:
+See **[RUN.md](readme_others/RUN.md)** for full steps. Quick start:
 
 ```bash
 # Option A — Docker (one command)

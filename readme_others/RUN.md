@@ -16,7 +16,7 @@ After it's up:
 **Prerequisite:** Docker Desktop / Docker Engine with Compose v2.
 
 ```bash
-cd mediclaim-ai-insurance-agent
+cd heavy-machinery-predictive-maintenance-pipeline
 
 # build both images and start the whole stack
 docker compose up --build
@@ -26,7 +26,7 @@ That's it. Compose builds two services:
 - `backend` (FastAPI) — trains + loads the model, serves the API on port **8000**.
 - `frontend` (React, built and served by nginx) on port **5173**.
 
-Open **http://localhost:5173**, pick a preset (Healthy / Stressed) or type sensor values, and
+Open **http://localhost:5173**, pick a preset (Healthy / Degraded) or type sensor values, and
 click **Assess Machine**.
 
 **Stop it:**
@@ -50,7 +50,7 @@ docker compose up --build
 
 ### Terminal 1 — Backend (port 8000)
 ```bash
-cd mediclaim-ai-insurance-agent
+cd heavy-machinery-predictive-maintenance-pipeline
 
 # one-time setup
 python3 -m venv venv
@@ -74,7 +74,7 @@ uvicorn api_server:app --reload --port 8000
 
 ### Terminal 2 — Frontend (port 5173)
 ```bash
-cd mediclaim-ai-insurance-agent/frontend
+cd heavy-machinery-predictive-maintenance-pipeline/frontend
 
 npm install        # one-time
 npm run dev
@@ -89,7 +89,7 @@ Open **http://localhost:5173**.
 - **Notebook** (the full ML solution + patterns + security + RAG, executed):
   ```bash
   pip install -r requirements-notebook.txt
-  jupyter notebook 105.ipynb          # or open 105.html in a browser
+  jupyter notebook notebook/105.ipynb
   ```
 - **Tests** (18 tests):
   ```bash

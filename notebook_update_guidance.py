@@ -8,7 +8,7 @@ behavior.
 # Replace any hardcoded repository-folder references with generic root-based
 # execution guidance. For example, replace:
 #
-#   cd mediclaim-ai-insurance-agent
+#   cd heavy-machinery-predictive-maintenance-pipeline
 #
 # with:
 #
