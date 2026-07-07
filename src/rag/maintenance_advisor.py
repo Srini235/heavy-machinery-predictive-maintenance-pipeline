@@ -28,7 +28,10 @@ from typing import List, Optional, Tuple
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-DEFAULT_KB_PATH = "data/hydraulic_maintenance_manual.md"
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent.parent.parent
+
+DEFAULT_KB_PATH = str(ROOT / "data" / "hydraulic_maintenance_manual.md")
 
 # OpenRouter (https://openrouter.ai) — optional LLM generation step of the RAG.
 # If OPENROUTER_API_KEY is set, the retrieved procedure is passed to an LLM which
