@@ -31,8 +31,10 @@ Stepwise architecture / design notes (implemented here):
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
+from time import perf_counter
 
 import joblib
 import numpy as np
@@ -45,6 +47,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [TRAIN] %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 from src.model_registry import ModelArtifact, ModelRegistry
 from src.security_layer import compute_file_sha256
@@ -72,13 +80,14 @@ def _log_mlflow_run(condition_path: Path, stability_path: Path,
                     schema_path: Path, cond_metrics: dict, rt_acc: float) -> None:
     mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
     if not mlflow_uri:
+        logger.info("MLflow not configured; skipping MLflow logging")
         return
 
     try:
         import mlflow
         import mlflow.sklearn
     except ImportError:
-        print("MLflow is not installed; skipping MLflow logging")
+        logger.warning("Mlflow is not installed; skipping MLflow logging")
         return
 
     experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", "hydraulics-predictive-maintenance")
@@ -96,8 +105,9 @@ def _log_mlflow_run(condition_path: Path, stability_path: Path,
         mlflow.log_artifact(str(stability_path), artifact_path="model_registry")
         mlflow.log_artifact(str(schema_path), artifact_path="model_registry")
 
-#Execute main training and saving logic
+
 def main(force: bool = False):
+    logger.info("Train run started; force=%s", force)
     REGISTRY.mkdir(parents=True, exist_ok=True)
     # Do not require the dataset unless we actually need to retrain; check later.
 
@@ -124,7 +134,7 @@ def main(force: bool = False):
             break
 
     if up_to_date and not force:
-        print("Artifacts are up-to-date according to model_registry/index.json — skipping training.")
+        logger.info("Artifacts are up-to-date according to model_registry/index.json — skipping training.")
         return
 
     # Load dataset only if we need to train
@@ -151,7 +161,9 @@ def main(force: bool = False):
         ("clf", MultiOutputClassifier(RandomForestClassifier(
             n_estimators=200, max_depth=12, random_state=42, n_jobs=-1)))]
     )
+    start = perf_counter()
     condition_model.fit(X_tr, ym_tr)
+    logger.info("Trained condition model in %.2f seconds", perf_counter() - start)
     ym_pred = condition_model.predict(X_te)
     ym_pred_arr = np.asarray(ym_pred)
     cond_metrics = {t: {"accuracy": round(float(accuracy_score(ym_te[t].to_numpy(), ym_pred_arr[:, i])), 4),
@@ -161,7 +173,9 @@ def main(force: bool = False):
     stability_model = Pipeline([
         ("prep", preprocessor),
         ("clf", RandomForestClassifier(n_estimators=60, max_depth=6, random_state=42, n_jobs=-1))])
+    start = perf_counter()
     stability_model.fit(X_tr, yr_tr)
+    logger.info("Trained stability model in %.2f seconds", perf_counter() - start)
     rt_acc = accuracy_score(yr_te, stability_model.predict(X_te))
 
     condition_path = REGISTRY / "condition_model.joblib"
@@ -170,6 +184,7 @@ def main(force: bool = False):
 
     # TODO: write artifacts atomically, e.g. save to a temp file and rename to avoid
     # partial writes on crash / interruption.
+    logger.info("Saving trained artifacts to %s", REGISTRY)
     joblib.dump(condition_model, condition_path)
     joblib.dump(stability_model, stability_path)
 
@@ -187,6 +202,7 @@ def main(force: bool = False):
     # TODO: consider writing a detached signature file for schema.json to support
     # stronger artifact authenticity guarantees in addition to checksum registration.
     schema_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
+    logger.info("Saved schema file %s", schema_path)
 
     registry = ModelRegistry(REGISTRY)
     registry.register(ModelArtifact(path="condition_model.joblib",
@@ -201,10 +217,10 @@ def main(force: bool = False):
 
     _log_mlflow_run(condition_path, stability_path, schema_path, cond_metrics, float(rt_acc))
 
-    print("Saved condition_model.joblib, stability_model.joblib, schema.json")
+    logger.info("Saved condition_model.joblib, stability_model.joblib, schema.json")
     for t, m in cond_metrics.items():
-        print(f"  {t:22s} acc={m['accuracy']:.3f}  macroF1={m['macro_f1']:.3f}")
-    print(f"  stability_flag         acc={rt_acc:.3f}")
+        logger.info("%s acc=%.3f macroF1=%.3f", t, m['accuracy'], m['macro_f1'])
+    logger.info("stability_flag acc=%.3f", rt_acc)
 
 
 if __name__ == "__main__":

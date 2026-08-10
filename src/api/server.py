@@ -11,8 +11,10 @@ Run:  uvicorn api_server:app --reload --port 8000
 Docs: http://localhost:8000/docs
 """
 import json
-from pathlib import Path
+import logging
 import os
+from pathlib import Path
+from time import perf_counter
 
 import joblib
 import pandas as pd
@@ -29,17 +31,30 @@ from src.maintenance_advisor import MaintenanceAdvisor
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "model_registry"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [API] %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 COND_PATH = REGISTRY / "condition_model.joblib"
 STAB_PATH = REGISTRY / "stability_model.joblib"
 SCHEMA_PATH = REGISTRY / "schema.json"
 API_KEY = os.getenv("HYDRAULICS_API_KEY", "fleet-ops-secret-key")
 
 registry = ModelRegistry(REGISTRY)
+logger.info("Loading model registry from %s", REGISTRY)
 if not (COND_PATH.exists() and STAB_PATH.exists() and SCHEMA_PATH.exists()):
+    logger.error("Missing model artifacts in %s", REGISTRY)
     raise RuntimeError("Models not found. Run: python train_and_save.py from the repository root")
 
-_condition_model = joblib.load(COND_PATH)
-_stability_model = joblib.load(STAB_PATH)
+try:
+    _condition_model = joblib.load(COND_PATH)
+    _stability_model = joblib.load(STAB_PATH)
+except Exception as exc:
+    logger.exception("Failed to load model artifacts")
+    raise RuntimeError("Unable to load model artifacts") from exc
+
 with open(SCHEMA_PATH, encoding="utf-8") as f:
     SCHEMA = json.load(f)
 NUMERIC = SCHEMA["numeric_features"]
@@ -55,15 +70,19 @@ for artifact_name, path in [
 ]:
     entry = registry.get(artifact_name)
     if entry is None:
+        logger.error("Model registry missing %s entry", artifact_name)
         raise RuntimeError(f"Model registry missing {artifact_name} entry")
     if entry.sha256 != compute_file_sha256(path):
+        logger.error("Registry SHA mismatch for %s", artifact_name)
         raise RuntimeError(f"Registry SHA mismatch for {artifact_name}: artifact may be tampered")
+    logger.info("Verified %s integrity", artifact_name)
 
 _auth = ApiKeyAuthenticator([API_KEY])
 _rate = RateLimiter(max_calls=30, window_seconds=1.0)
 _audit = AuditTrail()
 _gateway = SecureInferenceGateway(_auth, _rate, _audit)
 _advisor = MaintenanceAdvisor()
+logger.info("API initialized with %s machine types and %d targets", len(SCHEMA["machine_types"]), len(TARGETS))
 
 # human-readable severity ranking so we can pick the worst component to advise on
 SEVERITY = {
@@ -123,10 +142,10 @@ def health():
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict(reading: SensorReading, x_api_key: str = Header(default=API_KEY)):
-    import time
-    t0 = time.perf_counter()
+    t0 = perf_counter()
     payload = reading.model_dump()
     machine_type = payload.pop("machine_type")
+    logger.info("Received prediction request for machine_type=%s", reading.machine_type)
 
     # Filter 1 & 2: Security, Rate-Limiting, and Hydraulic Outlier Filtering
     try:
@@ -141,6 +160,7 @@ def predict(reading: SensorReading, x_api_key: str = Header(default=API_KEY)):
             bounds=HYDRAULIC_BOUNDS,
         )
     except SecurityError as e:
+        logger.warning("Prediction blocked: %s", str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
     clean["machine_type"] = machine_type
@@ -149,7 +169,7 @@ def predict(reading: SensorReading, x_api_key: str = Header(default=API_KEY)):
     # Filter 3 & 4: Model Registry Validation & Machine Learning Inference
     cond_pred = _condition_model.predict(X)[0]
     stability = "unstable" if int(_stability_model.predict(X)[0]) == 1 else "stable"
-    latency = round((time.perf_counter() - t0) * 1000, 2)
+    latency = round((perf_counter() - t0) * 1000, 2)
 
     # Filter 5: Maintenance Advisor Severity Resolution & RAG Enrichment
     components, worst = [], None
@@ -170,6 +190,7 @@ def predict(reading: SensorReading, x_api_key: str = Header(default=API_KEY)):
         llm = advice.get("llm_recommendation")
 
     _audit.record("frontend", "predict", f"stability={stability} worst={worst}")
+    logger.info("Prediction completed: stability=%s worst=%s latency=%.2fms", stability, worst, latency)
 
     # Filter 6: Structured Prediction Response Compilation
     return PredictionResponse(

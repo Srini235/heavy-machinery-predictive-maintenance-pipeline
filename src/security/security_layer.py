@@ -83,6 +83,7 @@ def validate_sensor_payload(payload: Dict[str, float],
     clean: Dict[str, float] = {}
     for field_name, (lo, hi) in bounds.items():
         if field_name not in payload:
+            _log.warning("Validation failed: missing field %s", field_name)
             raise SecurityError(f"missing required sensor field: {field_name!r}")
         value = payload[field_name]
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -250,10 +251,13 @@ class SecureInferenceGateway:
                         payload: Dict[str, float], predict_fn,
                         bounds: Dict[str, Tuple[float, float]] | None = None) -> dict:
         """Run predict_fn(clean_payload) only after all controls pass."""
+        logger = logging.getLogger("hydraulics.security")
+        logger.info("Guarded predict request from client=%s", client_id)
         self.auth.authenticate(api_key)                 # 2. authN
         self.rate_limiter.check(client_id)              # 5. rate limit
         clean = validate_sensor_payload(payload, bounds=bounds)        # 1. input validation
         result = predict_fn(clean)                       # model inference
         self.audit.record(client_id, "predict",         # 4. audit
                           f"payload_hash={hashlib.sha256(str(clean).encode()).hexdigest()[:12]}")
+        logger.info("Guarded predict succeeded for client=%s", client_id)
         return result

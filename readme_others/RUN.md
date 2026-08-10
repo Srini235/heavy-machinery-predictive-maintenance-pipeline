@@ -64,6 +64,9 @@ set -a; . ./.env; set +a                  # load it into the shell (Linux/Mac)
 # train + save the models once (creates model_registry/*.joblib from the dataset)
 python3 train_and_save.py
 
+# force retrain even if existing artifacts are already registered
+python3 train_and_save.py --force
+
 # start the API
 uvicorn api_server:app --reload --port 8000
 ```

@@ -15,6 +15,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
+from fastapi.testclient import TestClient
+
+from src.api.server import app
 from src.security_layer import (
     validate_sensor_payload, ApiKeyAuthenticator, RateLimiter, AuditTrail,
     compute_file_sha256, verify_model_integrity, SecurityError,
@@ -157,6 +160,39 @@ def test_rate_limiter_recovers_after_window():
         rl.check("c", now=0.2)
     # after the window slides past, calls are allowed again
     assert rl.check("c", now=2.0) is True
+
+
+# --------------------------------------------------------------------------- #
+# API integration tests
+# --------------------------------------------------------------------------- #
+
+def test_health_endpoint_is_alive():
+    client = TestClient(app)
+    response = client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert "targets" in body
+    assert isinstance(body["machine_types"], list)
+
+
+def test_predict_endpoint_rejects_bad_api_key():
+    client = TestClient(app)
+    payload = {
+        "operating_hours": 1000,
+        "pressure_mean_bar": 150.0,
+        "pressure_std_bar": 5.0,
+        "flow_mean_lpm": 8.0,
+        "oil_temp_mean_c": 75.0,
+        "vibration_rms_mms": 5.0,
+        "motor_power_kw": 20.0,
+        "pump_speed_mean_rpm": 1200.0,
+        "cooling_efficiency_pct": 60.0,
+        "machine_type": "Excavator",
+    }
+    response = client.post("/predict", json=payload, headers={"x-api-key": "bad-key"})
+    assert response.status_code == 400
+    assert response.json()["detail"].strip().lower() == "invalid api key"
 
 
 # --------------------------------------------------------------------------- #

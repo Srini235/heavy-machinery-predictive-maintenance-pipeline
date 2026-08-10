@@ -15,10 +15,17 @@ Design notes:
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [REGISTRY] %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -44,6 +51,7 @@ class ModelRegistry:
             "metadata": artifact.metadata,
         }
         self._save_index(index)
+        logger.info("Registered artifact %s with sha256 %s", artifact.path, artifact.sha256[:12])
 
     def get(self, path: str) -> ModelArtifact | None:
         index = self._load_index()
