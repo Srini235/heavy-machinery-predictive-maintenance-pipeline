@@ -5,12 +5,14 @@ telemetry dataset and save them for the API server.
 Author: Aman Kushwah (2024AC05064) — Group 105
 
 Trains, matching the master notebook:
-  * multi-output condition model  -> cooler_condition, valve_condition, pump_leakage, accumulator_pressure
+  * multi-output condition model  -> cooler_condition, valve_condition, pump_leakage,
+    accumulator_pressure
   * lightweight stability model   -> stability_flag (real-time)
 
 Run:  python3 train_and_save.py
 Output: model_registry/condition_model.joblib, stability_model.joblib, schema.json
 """
+
 import json
 import os
 from pathlib import Path
@@ -34,9 +36,17 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data" / "hydraulic_fleet_telemetry.csv"
 REGISTRY = ROOT / "model_registry"
 
-NUMERIC_FEATURES = ["operating_hours", "pressure_mean_bar", "pressure_std_bar", "flow_mean_lpm",
-                    "oil_temp_mean_c", "vibration_rms_mms", "motor_power_kw",
-                    "pump_speed_mean_rpm", "cooling_efficiency_pct"]
+NUMERIC_FEATURES = [
+    "operating_hours",
+    "pressure_mean_bar",
+    "pressure_std_bar",
+    "flow_mean_lpm",
+    "oil_temp_mean_c",
+    "vibration_rms_mms",
+    "motor_power_kw",
+    "pump_speed_mean_rpm",
+    "cooling_efficiency_pct",
+]
 CATEGORICAL_FEATURES = ["machine_type"]
 TARGETS = ["cooler_condition", "valve_condition", "pump_leakage", "accumulator_pressure"]
 RT_TARGET = "stability_flag"
@@ -53,33 +63,57 @@ def main():
     imputer = SimpleImputer(strategy="median")
     df[NOISY_COLS] = imputer.fit_transform(df[NOISY_COLS])
 
-    preprocessor = ColumnTransformer(transformers=[
-        ("num", StandardScaler(), NUMERIC_FEATURES),
-        ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_FEATURES),
-    ])
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", StandardScaler(), NUMERIC_FEATURES),
+            ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_FEATURES),
+        ]
+    )
 
     X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
     y_multi = df[TARGETS]
     y_rt = df[RT_TARGET]
     X_tr, X_te, ym_tr, ym_te, yr_tr, yr_te = train_test_split(
-        X, y_multi, y_rt, test_size=0.2, random_state=42, stratify=df[RT_TARGET])
+        X, y_multi, y_rt, test_size=0.2, random_state=42, stratify=df[RT_TARGET]
+    )
 
     # 1. Multi-output condition model (batch)
-    condition_model = Pipeline([
-        ("prep", preprocessor),
-        ("clf", MultiOutputClassifier(RandomForestClassifier(
-            n_estimators=200, max_depth=12, random_state=42, n_jobs=-1)))])
+    condition_model = Pipeline(
+        [
+            ("prep", preprocessor),
+            (
+                "clf",
+                MultiOutputClassifier(
+                    RandomForestClassifier(
+                        n_estimators=200, max_depth=12, random_state=42, n_jobs=-1
+                    )
+                ),
+            ),
+        ]
+    )
     condition_model.fit(X_tr, ym_tr)
     ym_pred = condition_model.predict(X_te)
     ym_pred_arr = np.asarray(ym_pred)
-    cond_metrics = {t: {"accuracy": round(float(accuracy_score(ym_te[t].to_numpy(), ym_pred_arr[:, i])), 4),
-                        "macro_f1": round(float(f1_score(ym_te[t].to_numpy(), ym_pred_arr[:, i], average="macro")), 4)}
-                    for i, t in enumerate(TARGETS)}
+    cond_metrics = {
+        t: {
+            "accuracy": round(float(accuracy_score(ym_te[t].to_numpy(), ym_pred_arr[:, i])), 4),
+            "macro_f1": round(
+                float(f1_score(ym_te[t].to_numpy(), ym_pred_arr[:, i], average="macro")), 4
+            ),
+        }
+        for i, t in enumerate(TARGETS)
+    }
 
     # 2. Lightweight stability model (real-time)
-    stability_model = Pipeline([
-        ("prep", preprocessor),
-        ("clf", RandomForestClassifier(n_estimators=60, max_depth=6, random_state=42, n_jobs=-1))])
+    stability_model = Pipeline(
+        [
+            ("prep", preprocessor),
+            (
+                "clf",
+                RandomForestClassifier(n_estimators=60, max_depth=6, random_state=42, n_jobs=-1),
+            ),
+        ]
+    )
     stability_model.fit(X_tr, yr_tr)
     rt_acc = accuracy_score(yr_te, stability_model.predict(X_te))
 
@@ -97,23 +131,37 @@ def main():
         "targets": TARGETS,
         "rt_target": RT_TARGET,
         # healthiest class per target (used to decide "flagged")
-        "healthy_class": {"cooler_condition": 100, "valve_condition": 100,
-                          "pump_leakage": 0, "accumulator_pressure": 130},
+        "healthy_class": {
+            "cooler_condition": 100,
+            "valve_condition": 100,
+            "pump_leakage": 0,
+            "accumulator_pressure": 130,
+        },
         "condition_metrics": cond_metrics,
         "stability_accuracy": round(float(rt_acc), 4),
     }
     schema_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
 
     registry = ModelRegistry(REGISTRY)
-    registry.register(ModelArtifact(path="condition_model.joblib",
-                                    sha256=compute_file_sha256(condition_path),
-                                    metadata={"type": "condition_model"}))
-    registry.register(ModelArtifact(path="stability_model.joblib",
-                                    sha256=compute_file_sha256(stability_path),
-                                    metadata={"type": "stability_model"}))
-    registry.register(ModelArtifact(path="schema.json",
-                                    sha256=compute_file_sha256(schema_path),
-                                    metadata={"type": "schema"}))
+    registry.register(
+        ModelArtifact(
+            path="condition_model.joblib",
+            sha256=compute_file_sha256(condition_path),
+            metadata={"type": "condition_model"},
+        )
+    )
+    registry.register(
+        ModelArtifact(
+            path="stability_model.joblib",
+            sha256=compute_file_sha256(stability_path),
+            metadata={"type": "stability_model"},
+        )
+    )
+    registry.register(
+        ModelArtifact(
+            path="schema.json", sha256=compute_file_sha256(schema_path), metadata={"type": "schema"}
+        )
+    )
 
     _log_mlflow_run(condition_path, stability_path, schema_path, cond_metrics, float(rt_acc))
 
@@ -123,8 +171,9 @@ def main():
     print(f"  stability_flag         acc={rt_acc:.3f}")
 
 
-def _log_mlflow_run(condition_path: Path, stability_path: Path,
-                    schema_path: Path, cond_metrics: dict, rt_acc: float) -> None:
+def _log_mlflow_run(
+    condition_path: Path, stability_path: Path, schema_path: Path, cond_metrics: dict, rt_acc: float
+) -> None:
     mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
     if not mlflow_uri:
         return

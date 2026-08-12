@@ -48,14 +48,14 @@ from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from src.model_registry import ModelArtifact, ModelRegistry
+from src.security_layer import compute_file_sha256
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [TRAIN] %(levelname)s %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-from src.model_registry import ModelArtifact, ModelRegistry
-from src.security_layer import compute_file_sha256
 
 _here = Path(__file__).resolve().parent
 # Find a reasonable repository root that contains the `data` directory.
@@ -67,17 +67,27 @@ for _ in range(4):
 DATA = ROOT / "data" / "hydraulic_fleet_telemetry.csv"
 REGISTRY = ROOT / "model_registry"
 
-NUMERIC_FEATURES = ["operating_hours", "pressure_mean_bar", "pressure_std_bar", "flow_mean_lpm",
-                    "oil_temp_mean_c", "vibration_rms_mms", "motor_power_kw",
-                    "pump_speed_mean_rpm", "cooling_efficiency_pct"]
+NUMERIC_FEATURES = [
+    "operating_hours",
+    "pressure_mean_bar",
+    "pressure_std_bar",
+    "flow_mean_lpm",
+    "oil_temp_mean_c",
+    "vibration_rms_mms",
+    "motor_power_kw",
+    "pump_speed_mean_rpm",
+    "cooling_efficiency_pct",
+]
 CATEGORICAL_FEATURES = ["machine_type"]
 TARGETS = ["cooler_condition", "valve_condition", "pump_leakage", "accumulator_pressure"]
 RT_TARGET = "stability_flag"
 NOISY_COLS = ["pressure_mean_bar", "flow_mean_lpm", "oil_temp_mean_c", "vibration_rms_mms"]
 
+
 # Run mlflow logging
-def _log_mlflow_run(condition_path: Path, stability_path: Path,
-                    schema_path: Path, cond_metrics: dict, rt_acc: float) -> None:
+def _log_mlflow_run(
+    condition_path: Path, stability_path: Path, schema_path: Path, cond_metrics: dict, rt_acc: float
+) -> None:
     mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
     if not mlflow_uri:
         logger.info("MLflow not configured; skipping MLflow logging")
@@ -119,9 +129,11 @@ def main(force: bool = False):
 
     registry = ModelRegistry(REGISTRY)
     up_to_date = True
-    for name, path in [("condition_model.joblib", condition_path),
-                       ("stability_model.joblib", stability_path),
-                       ("schema.json", schema_path)]:
+    for name, path in [
+        ("condition_model.joblib", condition_path),
+        ("stability_model.joblib", stability_path),
+        ("schema.json", schema_path),
+    ]:
         if not path.exists():
             up_to_date = False
             break
@@ -134,7 +146,9 @@ def main(force: bool = False):
             break
 
     if up_to_date and not force:
-        logger.info("Artifacts are up-to-date according to model_registry/index.json — skipping training.")
+        logger.info(
+            "Artifacts are up-to-date according to model_registry/index.json — skipping training."
+        )
         return
 
     # Load dataset only if we need to train
@@ -145,34 +159,57 @@ def main(force: bool = False):
     imputer = SimpleImputer(strategy="median")
     df[NOISY_COLS] = imputer.fit_transform(df[NOISY_COLS])
 
-    preprocessor = ColumnTransformer(transformers=[
-        ("num", StandardScaler(), NUMERIC_FEATURES),
-        ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_FEATURES),
-    ])
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", StandardScaler(), NUMERIC_FEATURES),
+            ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_FEATURES),
+        ]
+    )
 
     X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
     y_multi = df[TARGETS]
     y_rt = df[RT_TARGET]
     X_tr, X_te, ym_tr, ym_te, yr_tr, yr_te = train_test_split(
-        X, y_multi, y_rt, test_size=0.2, random_state=42, stratify=df[RT_TARGET])
+        X, y_multi, y_rt, test_size=0.2, random_state=42, stratify=df[RT_TARGET]
+    )
 
-    condition_model = Pipeline([
-        ("prep", preprocessor),
-        ("clf", MultiOutputClassifier(RandomForestClassifier(
-            n_estimators=200, max_depth=12, random_state=42, n_jobs=-1)))]
+    condition_model = Pipeline(
+        [
+            ("prep", preprocessor),
+            (
+                "clf",
+                MultiOutputClassifier(
+                    RandomForestClassifier(
+                        n_estimators=200, max_depth=12, random_state=42, n_jobs=-1
+                    )
+                ),
+            ),
+        ]
     )
     start = perf_counter()
     condition_model.fit(X_tr, ym_tr)
     logger.info("Trained condition model in %.2f seconds", perf_counter() - start)
     ym_pred = condition_model.predict(X_te)
     ym_pred_arr = np.asarray(ym_pred)
-    cond_metrics = {t: {"accuracy": round(float(accuracy_score(ym_te[t].to_numpy(), ym_pred_arr[:, i])), 4),
-                        "macro_f1": round(float(f1_score(ym_te[t].to_numpy(), ym_pred_arr[:, i], average="macro")), 4)}
-                    for i, t in enumerate(TARGETS)}
+    cond_metrics = {
+        t: {
+            "accuracy": round(float(accuracy_score(ym_te[t].to_numpy(), ym_pred_arr[:, i])), 4),
+            "macro_f1": round(
+                float(f1_score(ym_te[t].to_numpy(), ym_pred_arr[:, i], average="macro")), 4
+            ),
+        }
+        for i, t in enumerate(TARGETS)
+    }
 
-    stability_model = Pipeline([
-        ("prep", preprocessor),
-        ("clf", RandomForestClassifier(n_estimators=60, max_depth=6, random_state=42, n_jobs=-1))])
+    stability_model = Pipeline(
+        [
+            ("prep", preprocessor),
+            (
+                "clf",
+                RandomForestClassifier(n_estimators=60, max_depth=6, random_state=42, n_jobs=-1),
+            ),
+        ]
+    )
     start = perf_counter()
     stability_model.fit(X_tr, yr_tr)
     logger.info("Trained stability model in %.2f seconds", perf_counter() - start)
@@ -194,8 +231,12 @@ def main(force: bool = False):
         "machine_types": sorted(df["machine_type"].unique().tolist()),
         "targets": TARGETS,
         "rt_target": RT_TARGET,
-        "healthy_class": {"cooler_condition": 100, "valve_condition": 100,
-                          "pump_leakage": 0, "accumulator_pressure": 130},
+        "healthy_class": {
+            "cooler_condition": 100,
+            "valve_condition": 100,
+            "pump_leakage": 0,
+            "accumulator_pressure": 130,
+        },
         "condition_metrics": cond_metrics,
         "stability_accuracy": round(float(rt_acc), 4),
     }
@@ -205,30 +246,45 @@ def main(force: bool = False):
     logger.info("Saved schema file %s", schema_path)
 
     registry = ModelRegistry(REGISTRY)
-    registry.register(ModelArtifact(path="condition_model.joblib",
-                                    sha256=compute_file_sha256(condition_path),
-                                    metadata={"type": "condition_model"}))
-    registry.register(ModelArtifact(path="stability_model.joblib",
-                                    sha256=compute_file_sha256(stability_path),
-                                    metadata={"type": "stability_model"}))
-    registry.register(ModelArtifact(path="schema.json",
-                                    sha256=compute_file_sha256(schema_path),
-                                    metadata={"type": "schema"}))
+    registry.register(
+        ModelArtifact(
+            path="condition_model.joblib",
+            sha256=compute_file_sha256(condition_path),
+            metadata={"type": "condition_model"},
+        )
+    )
+    registry.register(
+        ModelArtifact(
+            path="stability_model.joblib",
+            sha256=compute_file_sha256(stability_path),
+            metadata={"type": "stability_model"},
+        )
+    )
+    registry.register(
+        ModelArtifact(
+            path="schema.json", sha256=compute_file_sha256(schema_path), metadata={"type": "schema"}
+        )
+    )
 
     _log_mlflow_run(condition_path, stability_path, schema_path, cond_metrics, float(rt_acc))
 
     logger.info("Saved condition_model.joblib, stability_model.joblib, schema.json")
     for t, m in cond_metrics.items():
-        logger.info("%s acc=%.3f macroF1=%.3f", t, m['accuracy'], m['macro_f1'])
+        logger.info("%s acc=%.3f macroF1=%.3f", t, m["accuracy"], m["macro_f1"])
     logger.info("stability_flag acc=%.3f", rt_acc)
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Train and save hydraulic predictive-maintenance models")
-    parser.add_argument("--force", action="store_true",
-                        help="Force retraining even when artifacts are up-to-date in the registry")
+    parser = argparse.ArgumentParser(
+        description="Train and save hydraulic predictive-maintenance models"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force retraining even when artifacts are up-to-date in the registry",
+    )
     args = parser.parse_args()
 
     main(force=args.force)

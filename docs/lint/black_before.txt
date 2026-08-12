@@ -1,0 +1,11 @@
+would reformat /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/src/maintenance_advisor.py
+would reformat /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/src/core/pipeline.py
+would reformat /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/src/rag/maintenance_advisor.py
+would reformat /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/src/ml/train.py
+would reformat /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/src/api/server.py
+would reformat /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/tests/test_predictive_maintenance.py
+would reformat train_and_save.py
+would reformat /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/src/security/security_layer.py
+
+Oh no! 💥 💔 💥
+8 files would be reformatted, 11 files would be left unchanged.
