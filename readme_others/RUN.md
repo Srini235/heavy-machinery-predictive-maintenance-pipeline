@@ -94,9 +94,20 @@ Open **http://localhost:5173**.
   pip install -r requirements-notebook.txt
   jupyter notebook notebook/105.ipynb
   ```
-- **Tests** (18 tests):
+- **Tests** (37 tests — unit, integration, ML training/inference, data validation).
+  The API integration tests import the FastAPI app and load trained artifacts,
+  so install both requirement sets and train once first:
   ```bash
-  python3 -m pytest tests/test_predictive_maintenance.py -q
+  pip install -r requirements-api.txt -r requirements-notebook.txt httpx
+  python3 train_and_save.py          # only needed if model_registry/ doesn't exist yet
+  python3 -m pytest tests/ -q        # 37 passed
+  ```
+- **Lint gates** (kept clean; enforced by CI — reports in `docs/lint/`):
+  ```bash
+  pip install flake8 black isort
+  flake8 --max-line-length=100 src tests api_server.py train_and_save.py
+  black --check --line-length 100 src tests api_server.py train_and_save.py
+  isort --check-only --profile black --line-length 100 src tests api_server.py train_and_save.py
   ```
 
 ---
