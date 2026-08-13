@@ -1,0 +1,20 @@
+src/api/server.py:26:1: F401 'src.security_layer.validate_sensor_payload' imported but unused
+src/api/server.py:85:101: E501 line too long (111 > 100 characters)
+src/api/server.py:102:36: E702 multiple statements on one line (semicolon)
+src/api/server.py:193:101: E501 line too long (104 > 100 characters)
+src/core/model_registry.py:19:1: F401 'os' imported but unused
+src/maintenance_advisor.py:1:101: E501 line too long (102 > 100 characters)
+src/ml/train.py:8:101: E501 line too long (106 > 100 characters)
+src/ml/train.py:75:101: E501 line too long (108 > 100 characters)
+src/ml/train.py:76:101: E501 line too long (119 > 100 characters)
+src/rag/maintenance_advisor.py:32:5: E225 missing whitespace around operator
+src/rag/maintenance_advisor.py:121:39: E741 ambiguous variable name 'l'
+src/security/security_layer.py:74:101: E501 line too long (102 > 100 characters)
+tests/test_predictive_maintenance.py:9:1: F401 'os' imported but unused
+train_and_save.py:57:1: E402 module level import not at top of file
+train_and_save.py:58:1: E402 module level import not at top of file
+train_and_save.py:79:1: E302 expected 2 blank lines, found 1
+train_and_save.py:137:101: E501 line too long (107 > 100 characters)
+train_and_save.py:169:101: E501 line too long (108 > 100 characters)
+train_and_save.py:170:101: E501 line too long (119 > 100 characters)
+train_and_save.py:229:101: E501 line too long (106 > 100 characters)

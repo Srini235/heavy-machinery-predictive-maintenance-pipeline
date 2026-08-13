@@ -4,8 +4,7 @@ from typing import Any, Protocol, Sequence
 
 
 class Stage(Protocol):
-    def process(self, data: Any) -> Any:
-        ...
+    def process(self, data: Any) -> Any: ...
 
 
 class PipeFilterPipeline:

@@ -14,16 +14,16 @@ Design patterns: Facade (thin re-export) + Single Responsibility
 """
 
 from .security.security_layer import (
-    AuditTrail,
+    HYDRAULIC_BOUNDS,
+    SENSOR_BOUNDS,
     ApiKeyAuthenticator,
+    AuditTrail,
     RateLimiter,
-    SecurityError,
     SecureInferenceGateway,
+    SecurityError,
     compute_file_sha256,
     validate_sensor_payload,
     verify_model_integrity,
-    SENSOR_BOUNDS,
-    HYDRAULIC_BOUNDS,
 )
 
 __all__ = [

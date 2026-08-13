@@ -16,20 +16,21 @@ Vector store note:
     dependencies or model downloads, while demonstrating the identical retrieve-by-similarity
     pattern. Swapping in ChromaDB later only changes the Retriever class, not the interface.
 """
+
 from __future__ import annotations
 
+import json
 import os
 import re
-import json
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from pathlib import Path
-ROOT=Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 DEFAULT_KB_PATH = str(ROOT / "data" / "hydraulic_maintenance_manual.md")
 
@@ -50,24 +51,31 @@ FALLBACK_MODELS = [
 
 
 def _post_openrouter(api_key: str, model: str, prompt: str, timeout: int):
-    body = json.dumps({
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.2,
-    }).encode("utf-8")
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+        }
+    ).encode("utf-8")
     req = urllib.request.Request(
-        OPENROUTER_URL, data=body,
-        headers={"Authorization": f"Bearer {api_key}",
-                 "Content-Type": "application/json",
-                 "HTTP-Referer": "https://github.com/Srini235/SE4ML_Assignment_01_Group105",
-                 "X-Title": "Hydraulics Predictive Maintenance (Group 105)"})
+        OPENROUTER_URL,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/Srini235/SE4ML_Assignment_01_Group105",
+            "X-Title": "Hydraulics Predictive Maintenance (Group 105)",
+        },
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.load(resp)
     return data["choices"][0]["message"]["content"].strip()
 
 
-def generate_with_llm(component: str, procedure_title: str, procedure_text: str,
-                      timeout: int = 40) -> Optional[str]:
+def generate_with_llm(
+    component: str, procedure_title: str, procedure_text: str, timeout: int = 40
+) -> Optional[str]:
     """Ground an LLM (via OpenRouter) on the retrieved procedure and return a concise
     technician recommendation. Returns None if no API key is set or all models fail
     (caller then falls back to the retrieved procedure text).
@@ -90,7 +98,7 @@ def generate_with_llm(component: str, procedure_title: str, procedure_text: str,
         tried.append(model)
         try:
             text = _post_openrouter(api_key, model, prompt, timeout)
-            if text and len(text) > 20:          # guard against safety-classifier junk
+            if text and len(text) > 20:  # guard against safety-classifier junk
                 return text
         except Exception:
             continue
@@ -100,6 +108,7 @@ def generate_with_llm(component: str, procedure_title: str, procedure_text: str,
 @dataclass
 class Document:
     """One retrievable maintenance procedure."""
+
     title: str
     text: str
 
@@ -118,7 +127,7 @@ def load_knowledge_base(path: str = DEFAULT_KB_PATH) -> List[Document]:
             continue
         lines = block.splitlines()
         title = lines[0].strip()
-        body = " ".join(l.strip() for l in lines[1:] if l.strip())
+        body = " ".join(ln.strip() for ln in lines[1:] if ln.strip())
         if body:
             docs.append(Document(title=title, text=f"{title}. {body}"))
     return docs
@@ -152,12 +161,12 @@ class TfidfRetriever:
 
 # Map each model target/flag to a natural-language query for retrieval.
 COMPONENT_QUERIES = {
-    "cooler_condition":     "cooler efficiency drop high oil temperature thermal load",
-    "valve_condition":      "directional valve sticking switching fault pressure fluctuation",
-    "pump_leakage":         "internal pump leakage falling flow rate volumetric efficiency",
+    "cooler_condition": "cooler efficiency drop high oil temperature thermal load",
+    "valve_condition": "directional valve sticking switching fault pressure fluctuation",
+    "pump_leakage": "internal pump leakage falling flow rate volumetric efficiency",
     "accumulator_pressure": "accumulator pre-charge pressure loss pump cycling",
-    "vibration":            "high vibration cavitation loose mounting bearing wear",
-    "oil_debris":           "oil contamination particle count debris filter replacement",
+    "vibration": "high vibration cavitation loose mounting bearing wear",
+    "oil_debris": "oil contamination particle count debris filter replacement",
 }
 
 
@@ -167,24 +176,26 @@ class MaintenanceAdvisor:
     def __init__(self, kb_path: str = DEFAULT_KB_PATH):
         self.retriever = TfidfRetriever().add(load_knowledge_base(kb_path))
 
-    def advise(self, flagged_component: str, extra_symptoms: str = "", k: int = 1,
-               use_llm: bool = True):
+    def advise(
+        self, flagged_component: str, extra_symptoms: str = "", k: int = 1, use_llm: bool = True
+    ):
         """Retrieve the top-k procedures for a flagged component/symptom set.
 
         If use_llm is True and OPENROUTER_API_KEY is set, the top procedure is passed to
         an LLM (via OpenRouter) which writes a tailored recommendation; the result is added
         as `llm_recommendation`. Otherwise the retrieved text is the guidance (offline).
         """
-        base_query = COMPONENT_QUERIES.get(
-            flagged_component, flagged_component.replace("_", " "))
+        base_query = COMPONENT_QUERIES.get(flagged_component, flagged_component.replace("_", " "))
         query = f"{base_query} {extra_symptoms}".strip()
         hits = self.retriever.retrieve(query, k=k)
         results = []
         for rank, (doc, score) in enumerate(hits):
-            item = {"procedure": doc.title,
-                    "relevance": round(float(score), 3),
-                    "guidance": doc.text}
-            if use_llm and rank == 0:                       # generate only for the top hit
+            item = {
+                "procedure": doc.title,
+                "relevance": round(float(score), 3),
+                "guidance": doc.text,
+            }
+            if use_llm and rank == 0:  # generate only for the top hit
                 llm = generate_with_llm(flagged_component, doc.title, doc.text)
                 if llm:
                     item["llm_recommendation"] = llm

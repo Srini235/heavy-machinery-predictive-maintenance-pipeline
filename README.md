@@ -11,12 +11,12 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 ---
 ### Academic Submission Details
 - **Course:** AIMLCZG546 - Software Engineering for Machine Learning
-- **Assignment:** Assignment 1 (Weightage: 10 Marks)
+- **Assignments:** Assignment 1 & Assignment 2 (Weightage: 10 Marks each)
 - **Group Details:** Group No. 105
 
 <div align="center">
 
-**Team Contribution — Software Engineering for Machine Learning · Assignment 1 · Group 105**
+**Team Contribution — Software Engineering for Machine Learning · Group 105**
 
 | Serial No | BITS ID | Student Name | Contribution % |
 | :---: | :---: | :--- | :--- |
@@ -37,9 +37,13 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 | **Architecture diagram** (Objective 2, ML + non-ML) | `docs/screenshots/architecture_diagram.png` |
 | **Web app** — React (shadcn/ui) frontend + FastAPI backend | `frontend/`, `api_server.py`, `train_and_save.py` |
 | **Reusable modules** | `src/security_layer.py`, `src/maintenance_advisor.py` |
+| **Data quality module** (schema / missing values / PSI drift) | `src/quality/data_quality.py` |
 | **Knowledge base** (RAG) | `data/hydraulic_maintenance_manual.md` |
-| **Tests** (18 passing) | `tests/test_predictive_maintenance.py` |
+| **Tests** (37 passing — unit, integration, ML training/inference, data validation) | `tests/` |
+| **Lint & test reports** (before/after evidence, Assignment 2) | `docs/lint/` |
+| **Assignment 2 submission report** | `docs/submission/105.docx` |
 | **Docker pipeline** | `Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml` |
+| **CI pipeline** (lint gates → train → full test suite) | `.github/workflows/ci_pipeline.yml` |
 | **Docs** | `readme_others/RUN.md`, `readme_others/FRONTEND_README.md` |
 | **Screenshots** | `docs/screenshots/` |
 
@@ -80,9 +84,28 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 	- Optional MLflow logging is included in `train_and_save.py` when
 	  `MLFLOW_TRACKING_URI` is set; metrics and artifacts are recorded per run.
 
-7. Tests
-	- File: `tests/test_predictive_maintenance.py` — unit and integration tests
-	  validating the pipeline and inference behaviors.
+7. Tests (37 total)
+	- `tests/test_predictive_maintenance.py` — unit tests (security primitives, RAG
+	  retriever) and API integration tests via FastAPI `TestClient`.
+	- `tests/test_ml_training.py` — ML training tests: overfit-a-small-batch sanity
+	  check, boosting loss decreases per iteration, pipeline beats majority baseline.
+	- `tests/test_ml_inference.py` — ML inference tests: output shape/class-set and
+	  probability-range checks, determinism/unseen-category invariance, directional
+	  test (degraded sensors must not lower predicted risk).
+	- `tests/test_data_quality.py` — data validation tests against the real dataset
+	  and corrupted copies (schema, missing-value budget, PSI drift).
+
+8. Data quality metrics
+	- File: `src/quality/data_quality.py` — schema validation, per-column
+	  missing-value rates, and Population Stability Index (PSI) drift detection,
+	  with INFO/WARNING/ERROR logging. Used by the data-validation tests and
+	  suitable for scheduled production monitoring.
+
+9. Code style & CI
+	- The codebase is kept clean under `flake8` (max line length 100), `black`
+	  and `isort` (before/after reports in `docs/lint/`). The GitHub Actions
+	  workflow (`.github/workflows/ci_pipeline.yml`) enforces the lint gates,
+	  retrains the models, and runs the full 37-test suite on every push/PR.
 
 See `DESIGN.md` for a short architecture summary, implemented patterns, security
 improvements, and open checklist items for future hardening.
@@ -110,7 +133,15 @@ python -m uvicorn api_server:app --reload --port 8000
 python train_and_save.py --force
 ```
 
-Run the tests:
+Run the tests (train first — the API integration tests load `model_registry/`):
 ```bash
-python -m pytest tests/test_predictive_maintenance.py -q     # 18 passed
+python train_and_save.py
+python -m pytest tests/ -q                                   # 37 passed
+```
+
+Run the lint gates (same commands CI enforces):
+```bash
+flake8 --max-line-length=100 src tests api_server.py train_and_save.py
+black --check --line-length 100 src tests api_server.py train_and_save.py
+isort --check-only --profile black --line-length 100 src tests api_server.py train_and_save.py
 ```

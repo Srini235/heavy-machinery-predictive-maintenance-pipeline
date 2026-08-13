@@ -6,21 +6,32 @@ Author: Aman Kushwah (2024AC05064) — Group 105
 Covers the model pipeline and the application-wide security layer.
 Run from the repo root:   pytest -q
 """
-import os
+
 import math
+
 import numpy as np
 import pandas as pd
 import pytest
+from fastapi.testclient import TestClient
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
-from src.security_layer import (
-    validate_sensor_payload, ApiKeyAuthenticator, RateLimiter, AuditTrail,
-    compute_file_sha256, verify_model_integrity, SecurityError,
-)
+from src.api.server import app
 from src.maintenance_advisor import (
-    MaintenanceAdvisor, load_knowledge_base, TfidfRetriever, Document,
+    Document,
+    MaintenanceAdvisor,
+    TfidfRetriever,
+    load_knowledge_base,
+)
+from src.security_layer import (
+    ApiKeyAuthenticator,
+    AuditTrail,
+    RateLimiter,
+    SecurityError,
+    compute_file_sha256,
+    validate_sensor_payload,
+    verify_model_integrity,
 )
 
 
@@ -32,16 +43,21 @@ def dataset():
     rng = np.random.default_rng(42)
     n = 1500
     duty = rng.uniform(0, 1, n)
-    df = pd.DataFrame({
-        "pressure":    150 + 40*duty + rng.normal(0, 6, n),
-        "temperature": 55 + 35*duty + rng.normal(0, 4, n),
-        "vibration":   2.0 + 6.0*duty + rng.normal(0, 0.6, n),
-        "flow_rate":   90 - 15*duty + rng.normal(0, 3, n),
-        "oil_debris":  20 + 120*duty + rng.normal(0, 12, n),
-    })
-    risk = (0.35*(df.temperature-55)/35 + 0.35*(df.vibration-2)/6
-            + 0.30*(df.oil_debris-20)/120)
-    prob = 1/(1+np.exp(-10*(risk-0.5)))
+    df = pd.DataFrame(
+        {
+            "pressure": 150 + 40 * duty + rng.normal(0, 6, n),
+            "temperature": 55 + 35 * duty + rng.normal(0, 4, n),
+            "vibration": 2.0 + 6.0 * duty + rng.normal(0, 0.6, n),
+            "flow_rate": 90 - 15 * duty + rng.normal(0, 3, n),
+            "oil_debris": 20 + 120 * duty + rng.normal(0, 12, n),
+        }
+    )
+    risk = (
+        0.35 * (df.temperature - 55) / 35
+        + 0.35 * (df.vibration - 2) / 6
+        + 0.30 * (df.oil_debris - 20) / 120
+    )
+    prob = 1 / (1 + np.exp(-10 * (risk - 0.5)))
     y = (rng.uniform(0, 1, n) < prob).astype(int)
     return df, y
 
@@ -49,10 +65,8 @@ def dataset():
 @pytest.fixture(scope="module")
 def trained(dataset):
     X, y = dataset
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2,
-                                          random_state=42, stratify=y)
-    model = RandomForestClassifier(n_estimators=120, max_depth=10,
-                                   random_state=42, n_jobs=-1)
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    model = RandomForestClassifier(n_estimators=120, max_depth=10, random_state=42, n_jobs=-1)
     model.fit(Xtr, ytr)
     return model, Xte, yte
 
@@ -90,20 +104,22 @@ def test_explainability_available(trained):
 # --------------------------------------------------------------------------- #
 # Security tests — one per control
 # --------------------------------------------------------------------------- #
-GOOD = {"pressure": 180, "temperature": 70, "vibration": 4,
-        "flow_rate": 85, "oil_debris": 60}
+GOOD = {"pressure": 180, "temperature": 70, "vibration": 4, "flow_rate": 85, "oil_debris": 60}
 
 
 def test_input_validation_accepts_valid():
     assert validate_sensor_payload(GOOD) == {k: float(v) for k, v in GOOD.items()}
 
 
-@pytest.mark.parametrize("bad", [
-    {**GOOD, "pressure": 99999},             # out of range
-    {**GOOD, "vibration": -5},               # out of range
-    {**GOOD, "temperature": float("nan")},   # NaN
-    {k: v for k, v in GOOD.items() if k != "flow_rate"},  # missing field
-])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {**GOOD, "pressure": 99999},  # out of range
+        {**GOOD, "vibration": -5},  # out of range
+        {**GOOD, "temperature": float("nan")},  # NaN
+        {k: v for k, v in GOOD.items() if k != "flow_rate"},  # missing field
+    ],
+)
 def test_input_validation_rejects_bad(bad):
     with pytest.raises(SecurityError):
         validate_sensor_payload(bad)
@@ -123,7 +139,7 @@ def test_model_integrity(tmp_path):
     p.write_bytes(b"trained-model-weights")
     checksum = compute_file_sha256(str(p))
     assert verify_model_integrity(str(p), checksum) is True
-    p.write_bytes(b"trained-model-weights-TAMPERED")   # modify the artifact
+    p.write_bytes(b"trained-model-weights-TAMPERED")  # modify the artifact
     with pytest.raises(SecurityError):
         verify_model_integrity(str(p), checksum)
 
@@ -160,6 +176,40 @@ def test_rate_limiter_recovers_after_window():
 
 
 # --------------------------------------------------------------------------- #
+# API integration tests
+# --------------------------------------------------------------------------- #
+
+
+def test_health_endpoint_is_alive():
+    client = TestClient(app)
+    response = client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert "targets" in body
+    assert isinstance(body["machine_types"], list)
+
+
+def test_predict_endpoint_rejects_bad_api_key():
+    client = TestClient(app)
+    payload = {
+        "operating_hours": 1000,
+        "pressure_mean_bar": 150.0,
+        "pressure_std_bar": 5.0,
+        "flow_mean_lpm": 8.0,
+        "oil_temp_mean_c": 75.0,
+        "vibration_rms_mms": 5.0,
+        "motor_power_kw": 20.0,
+        "pump_speed_mean_rpm": 1200.0,
+        "cooling_efficiency_pct": 60.0,
+        "machine_type": "Excavator",
+    }
+    response = client.post("/predict", json=payload, headers={"x-api-key": "bad-key"})
+    assert response.status_code == 400
+    assert response.json()["detail"].strip().lower() == "invalid api key"
+
+
+# --------------------------------------------------------------------------- #
 # RAG Maintenance Advisor tests
 # --------------------------------------------------------------------------- #
 def test_knowledge_base_loads():
@@ -169,20 +219,25 @@ def test_knowledge_base_loads():
 
 
 def test_retriever_ranks_relevant_doc_first():
-    retriever = TfidfRetriever().add([
-        Document("Pump", "internal pump leakage falling flow rate volumetric efficiency"),
-        Document("Cooler", "cooler efficiency drop high oil temperature thermal load"),
-    ])
+    retriever = TfidfRetriever().add(
+        [
+            Document("Pump", "internal pump leakage falling flow rate volumetric efficiency"),
+            Document("Cooler", "cooler efficiency drop high oil temperature thermal load"),
+        ]
+    )
     hits = retriever.retrieve("pump leakage low flow", k=1)
     assert hits[0][0].title == "Pump"
     assert hits[0][1] > 0
 
 
-@pytest.mark.parametrize("component,expected_keyword", [
-    ("pump_leakage", "pump"),
-    ("cooler_condition", "cooler"),
-    ("accumulator_pressure", "accumulator"),
-])
+@pytest.mark.parametrize(
+    "component,expected_keyword",
+    [
+        ("pump_leakage", "pump"),
+        ("cooler_condition", "cooler"),
+        ("accumulator_pressure", "accumulator"),
+    ],
+)
 def test_advisor_retrieves_matching_procedure(component, expected_keyword):
     advisor = MaintenanceAdvisor()
     result = advisor.advise(component, k=1)[0]

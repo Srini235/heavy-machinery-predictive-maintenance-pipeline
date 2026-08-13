@@ -17,6 +17,7 @@ Controls implemented (mapped to the "Security" quality requirement):
 
 None of these require network access; they are pure-python and unit-testable.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -48,30 +49,31 @@ class SecurityError(Exception):
 # Anything outside these ranges is rejected before it ever reaches the model,
 # which stops bad-data injection and adversarial out-of-distribution inputs.
 SENSOR_BOUNDS: Dict[str, Tuple[float, float]] = {
-    "pressure":    (80.0, 260.0),    # bar
-    "temperature": (20.0, 130.0),    # deg C
-    "vibration":   (0.0,  20.0),     # mm/s RMS
-    "flow_rate":   (30.0, 130.0),    # L/min
-    "oil_debris":  (0.0,  400.0),    # ppm particles
+    "pressure": (80.0, 260.0),  # bar
+    "temperature": (20.0, 130.0),  # deg C
+    "vibration": (0.0, 20.0),  # mm/s RMS
+    "flow_rate": (30.0, 130.0),  # L/min
+    "oil_debris": (0.0, 400.0),  # ppm particles
 }
 
 # Physically-plausible envelopes for the full mobile-hydraulics telemetry schema
 # (used by the serving API / web app, which ingests the richer per-cycle features).
 HYDRAULIC_BOUNDS: Dict[str, Tuple[float, float]] = {
-    "operating_hours":        (0.0, 5000.0),
-    "pressure_mean_bar":      (80.0, 260.0),
-    "pressure_std_bar":       (0.0, 60.0),
-    "flow_mean_lpm":          (0.5, 20.0),
-    "oil_temp_mean_c":        (10.0, 130.0),
-    "vibration_rms_mms":      (0.0, 30.0),
-    "motor_power_kw":         (1.0, 60.0),
-    "pump_speed_mean_rpm":    (500.0, 2200.0),
+    "operating_hours": (0.0, 5000.0),
+    "pressure_mean_bar": (80.0, 260.0),
+    "pressure_std_bar": (0.0, 60.0),
+    "flow_mean_lpm": (0.5, 20.0),
+    "oil_temp_mean_c": (10.0, 130.0),
+    "vibration_rms_mms": (0.0, 30.0),
+    "motor_power_kw": (1.0, 60.0),
+    "pump_speed_mean_rpm": (500.0, 2200.0),
     "cooling_efficiency_pct": (0.0, 100.0),
 }
 
 
-def validate_sensor_payload(payload: Dict[str, float],
-                            bounds: Dict[str, Tuple[float, float]] | None = None) -> Dict[str, float]:
+def validate_sensor_payload(
+    payload: Dict[str, float], bounds: Dict[str, Tuple[float, float]] | None = None
+) -> Dict[str, float]:
     """Validate a single machine's sensor reading against an operating envelope.
 
     Raises SecurityError on: missing field, non-numeric value, NaN/inf, or a
@@ -83,6 +85,7 @@ def validate_sensor_payload(payload: Dict[str, float],
     clean: Dict[str, float] = {}
     for field_name, (lo, hi) in bounds.items():
         if field_name not in payload:
+            _log.warning("Validation failed: missing field %s", field_name)
             raise SecurityError(f"missing required sensor field: {field_name!r}")
         value = payload[field_name]
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -91,8 +94,7 @@ def validate_sensor_payload(payload: Dict[str, float],
         if value != value or value in (float("inf"), float("-inf")):
             raise SecurityError(f"field {field_name!r} is NaN or infinite")
         if not (lo <= value <= hi):
-            raise SecurityError(
-                f"field {field_name!r}={value} out of safe range [{lo}, {hi}]")
+            raise SecurityError(f"field {field_name!r}={value} out of safe range [{lo}, {hi}]")
         clean[field_name] = float(value)
     return clean
 
@@ -152,7 +154,8 @@ def verify_model_integrity(path: str, expected_sha256: str) -> bool:
         _log.error("model integrity FAILED for %s", path)
         raise SecurityError(
             f"model integrity check failed for {path}: "
-            f"expected {expected_sha256[:12]}..., got {actual[:12]}...")
+            f"expected {expected_sha256[:12]}..., got {actual[:12]}..."
+        )
     _log.info("model integrity OK for %s", path)
     return True
 
@@ -170,6 +173,7 @@ class AuditTrail:
     TODO: Persist audit entries to durable storage so tamper evidence survives
     process restarts and can be audited offline.
     """
+
     _entries: list = field(default_factory=list)
     _prev_hash: str = "0" * 64
 
@@ -240,20 +244,32 @@ class RateLimiter:
 class SecureInferenceGateway:
     """Composes all five controls into one guarded prediction entry point."""
 
-    def __init__(self, authenticator: ApiKeyAuthenticator,
-                 rate_limiter: RateLimiter, audit: AuditTrail):
+    def __init__(
+        self, authenticator: ApiKeyAuthenticator, rate_limiter: RateLimiter, audit: AuditTrail
+    ):
         self.auth = authenticator
         self.rate_limiter = rate_limiter
         self.audit = audit
 
-    def guarded_predict(self, client_id: str, api_key: str,
-                        payload: Dict[str, float], predict_fn,
-                        bounds: Dict[str, Tuple[float, float]] | None = None) -> dict:
+    def guarded_predict(
+        self,
+        client_id: str,
+        api_key: str,
+        payload: Dict[str, float],
+        predict_fn,
+        bounds: Dict[str, Tuple[float, float]] | None = None,
+    ) -> dict:
         """Run predict_fn(clean_payload) only after all controls pass."""
-        self.auth.authenticate(api_key)                 # 2. authN
-        self.rate_limiter.check(client_id)              # 5. rate limit
-        clean = validate_sensor_payload(payload, bounds=bounds)        # 1. input validation
-        result = predict_fn(clean)                       # model inference
-        self.audit.record(client_id, "predict",         # 4. audit
-                          f"payload_hash={hashlib.sha256(str(clean).encode()).hexdigest()[:12]}")
+        logger = logging.getLogger("hydraulics.security")
+        logger.info("Guarded predict request from client=%s", client_id)
+        self.auth.authenticate(api_key)  # 2. authN
+        self.rate_limiter.check(client_id)  # 5. rate limit
+        clean = validate_sensor_payload(payload, bounds=bounds)  # 1. input validation
+        result = predict_fn(clean)  # model inference
+        self.audit.record(
+            client_id,
+            "predict",  # 4. audit
+            f"payload_hash={hashlib.sha256(str(clean).encode()).hexdigest()[:12]}",
+        )
+        logger.info("Guarded predict succeeded for client=%s", client_id)
         return result
