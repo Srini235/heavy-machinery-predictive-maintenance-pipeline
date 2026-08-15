@@ -1,5 +1,5 @@
 """
-api_server.py — FastAPI backend for the Predictive-Maintenance web app.
+server.py — FastAPI backend for the Predictive-Maintenance web app.
 
 Author: Aman Kushwah (2024AC05064) — Group 105
 
@@ -7,7 +7,7 @@ Serves the multi-output condition model + real-time stability model to the React
 frontend, guarded by the application-wide security layer, and enriched with RAG
 repair guidance (with optional OpenRouter LLM generation).
 
-Run:  uvicorn api_server:app --reload --port 8000
+Run:  uvicorn server:app --reload --port 8000
 Docs: http://localhost:8000/docs
 """
 
@@ -23,9 +23,9 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from src.maintenance_advisor import MaintenanceAdvisor
-from src.model_registry import ModelRegistry
-from src.security_layer import (
+from src.core.model_registry import ModelRegistry
+from src.rag.maintenance_advisor import MaintenanceAdvisor
+from src.security.security_layer import (
     HYDRAULIC_BOUNDS,
     ApiKeyAuthenticator,
     AuditTrail,
@@ -119,16 +119,16 @@ except Exception:
 
 
 class SensorReading(BaseModel):
-    operating_hours: float = Field(..., example=900)
-    pressure_mean_bar: float = Field(..., example=165)
-    pressure_std_bar: float = Field(..., example=6.5)
-    flow_mean_lpm: float = Field(..., example=7.2)
-    oil_temp_mean_c: float = Field(..., example=68)
-    vibration_rms_mms: float = Field(..., example=3.5)
-    motor_power_kw: float = Field(..., example=18)
-    pump_speed_mean_rpm: float = Field(..., example=1400)
-    cooling_efficiency_pct: float = Field(..., example=78)
-    machine_type: str = Field(..., example="Excavator")
+    operating_hours: float = Field(..., json_schema_extra={"example": 900})
+    pressure_mean_bar: float = Field(..., json_schema_extra={"example": 165})
+    pressure_std_bar: float = Field(..., json_schema_extra={"example": 6.5})
+    flow_mean_lpm: float = Field(..., json_schema_extra={"example": 7.2})
+    oil_temp_mean_c: float = Field(..., json_schema_extra={"example": 68})
+    vibration_rms_mms: float = Field(..., json_schema_extra={"example": 3.5})
+    motor_power_kw: float = Field(..., json_schema_extra={"example": 18})
+    pump_speed_mean_rpm: float = Field(..., json_schema_extra={"example": 1400})
+    cooling_efficiency_pct: float = Field(..., json_schema_extra={"example": 78})
+    machine_type: str = Field(..., json_schema_extra={"example": "Excavator"})
 
 
 class ComponentResult(BaseModel):

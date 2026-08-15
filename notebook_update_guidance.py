@@ -36,7 +36,7 @@ NOTEBOOK_UPDATE_GUIDANCE = {
         "import sys\n\n"
         "REPO_ROOT = Path('.').resolve()\n"
         "sys.path.insert(0, str(REPO_ROOT))\n\n"
-        "from src.model_registry import ModelRegistry\n"
+        "from src.core.model_registry import ModelRegistry\n"
     ),
 }
 

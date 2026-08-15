@@ -45,8 +45,8 @@ from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from src.model_registry import ModelArtifact, ModelRegistry
-from src.security_layer import compute_file_sha256
+from src.core.model_registry import ModelArtifact, ModelRegistry
+from src.security.security_layer import compute_file_sha256
 
 logging.basicConfig(
     level=logging.INFO,
