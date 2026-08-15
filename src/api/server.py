@@ -1,5 +1,5 @@
 """
-api_server.py — FastAPI backend for the Predictive-Maintenance web app.
+server.py — FastAPI backend for the Predictive-Maintenance web app.
 
 Author: Aman Kushwah (2024AC05064) — Group 105
 
@@ -7,7 +7,7 @@ Serves the multi-output condition model + real-time stability model to the React
 frontend, guarded by the application-wide security layer, and enriched with RAG
 repair guidance (with optional OpenRouter LLM generation).
 
-Run:  uvicorn api_server:app --reload --port 8000
+Run:  uvicorn server:app --reload --port 8000
 Docs: http://localhost:8000/docs
 """
 

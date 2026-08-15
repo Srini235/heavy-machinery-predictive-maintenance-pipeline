@@ -1,10 +1,10 @@
 {
   "integration.single_predict_latency": {
-    "value": 121.22,
+    "value": 112.22,
     "unit": "ms"
   },
   "integration.batch_latency_per_reading": {
-    "value": 4.921,
+    "value": 5.935,
     "unit": "ms"
   },
   "data_quality.psi_same_distribution": {
@@ -44,15 +44,15 @@
     "unit": ""
   },
   "performance.single_inference_median_latency": {
-    "value": 21.347,
+    "value": 30.9205,
     "unit": "ms"
   },
   "performance.batch_per_reading_latency": {
-    "value": 0.105311,
+    "value": 0.155186,
     "unit": "ms"
   },
   "performance.prediction_peak_memory": {
-    "value": 0.281426,
+    "value": 0.261591,
     "unit": "MB"
   },
   "performance.artifact_size.condition_model.joblib": {
