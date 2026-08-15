@@ -39,7 +39,7 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 | **Reusable modules** | `src/security_layer.py`, `src/maintenance_advisor.py` |
 | **Data quality module** (schema / missing values / PSI drift) | `src/quality/data_quality.py` |
 | **Knowledge base** (RAG) | `data/hydraulic_maintenance_manual.md` |
-| **Tests** (37 passing — unit, integration, ML training/inference, data validation) | `tests/` |
+| **Tests** (49 passing across 8 classified suites — unit, integration, ML training/inference, data quality, RAG, idempotency, performance) | `tests/` |
 | **Lint & test reports** (before/after evidence, Assignment 2) | `docs/lint/` |
 | **Assignment 2 submission report** | `docs/submission/105.docx` |
 | **Docker pipeline** | `Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml` |
@@ -79,21 +79,35 @@ confident*, and *why*, and then retrieves the matching repair procedure.
 	- File: `api_server.py` (wrapper) and `src/api/server.py`
 	- Behavior: On startup the API validates model files against the registry and
 	  refuses to start if checksums do not match, ensuring deployment integrity.
+	- Endpoints: `GET /health`, `POST /predict` (single reading), and
+	  `POST /predict/batch` (up to 1,000 readings in one vectorized model call —
+	  ~0.26 ms per reading vs ~42 ms for a single call). The service is stateless,
+	  so it also scales horizontally behind a load balancer.
 
 6. Observability
 	- Optional MLflow logging is included in `train_and_save.py` when
 	  `MLFLOW_TRACKING_URI` is set; metrics and artifacts are recorded per run.
 
-7. Tests (37 total)
-	- `tests/test_predictive_maintenance.py` — unit tests (security primitives, RAG
-	  retriever) and API integration tests via FastAPI `TestClient`.
-	- `tests/test_ml_training.py` — ML training tests: overfit-a-small-batch sanity
+7. Tests (49 total, classified by pytest markers — run any class with `pytest -m <marker>`)
+	- `tests/test_predictive_maintenance.py` (`unit`) — model quality requirements +
+	  security primitives in isolation.
+	- `tests/test_api_integration.py` (`integration`) — the real FastAPI app end-to-end:
+	  health, security rejection, single and batch prediction.
+	- `tests/test_ml_training.py` (`ml_training`) — overfit-a-small-batch sanity
 	  check, boosting loss decreases per iteration, pipeline beats majority baseline.
-	- `tests/test_ml_inference.py` — ML inference tests: output shape/class-set and
+	- `tests/test_ml_inference.py` (`ml_inference`) — output shape/class-set and
 	  probability-range checks, determinism/unseen-category invariance, directional
 	  test (degraded sensors must not lower predicted risk).
-	- `tests/test_data_quality.py` — data validation tests against the real dataset
-	  and corrupted copies (schema, missing-value budget, PSI drift).
+	- `tests/test_data_quality.py` (`data_quality`) — data validation against the real
+	  dataset and corrupted copies (schema, missing-value budget, PSI drift).
+	- `tests/test_rag_advisor.py` (`rag`) — knowledge-base loading and retrieval ranking.
+	- `tests/test_idempotency.py` (`idempotency`) — same seed → identical retrained
+	  predictions; registry re-registration stays single-entry; up-to-date guard
+	  detects current/missing/tampered artifacts.
+	- `tests/test_performance.py` (`performance`) — inference latency vs the 100 ms
+	  budget, batch per-reading amortization, tracemalloc memory, artifact size.
+	- Validation-sampling criteria are documented in `tests/conftest.py`; measured
+	  metrics are logged during the run and written to `tests/metrics_report.json`.
 
 8. Data quality metrics
 	- File: `src/quality/data_quality.py` — schema validation, per-column
@@ -136,7 +150,13 @@ python train_and_save.py --force
 Run the tests (train first — the API integration tests load `model_registry/`):
 ```bash
 python train_and_save.py
-python -m pytest tests/ -q                                   # 37 passed
+python -m pytest tests/ -q                                   # 49 passed
+python -m pytest -m performance -q                           # or any marker class
+```
+
+Profile a training run (stage timings are always logged; `--profile` adds cProfile hotspots):
+```bash
+python train_and_save.py --force --profile                   # writes model_registry/training_profile.txt
 ```
 
 Run the lint gates (same commands CI enforces):

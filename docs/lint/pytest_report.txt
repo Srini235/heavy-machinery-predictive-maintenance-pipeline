@@ -1,11 +1,17 @@
-.....................................                                    [100%]
+.................................................                        [100%]
 =============================== warnings summary ===============================
 .venv/lib/python3.12/site-packages/joblib/_utils.py:38: 16 warnings
+tests/test_api_integration.py: 30 warnings
+tests/test_idempotency.py: 66 warnings
+tests/test_performance.py: 162 warnings
 tests/test_predictive_maintenance.py: 15 warnings
   /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/.venv/lib/python3.12/site-packages/joblib/_utils.py:38: DeprecationWarning: ast.Num is deprecated and will be removed in Python 3.14; use ast.Constant instead
     if isinstance(node, ast.Num):  # <number>
 
 .venv/lib/python3.12/site-packages/joblib/_utils.py:39: 10 warnings
+tests/test_api_integration.py: 20 warnings
+tests/test_idempotency.py: 44 warnings
+tests/test_performance.py: 108 warnings
 tests/test_predictive_maintenance.py: 10 warnings
   /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/.venv/lib/python3.12/site-packages/joblib/_utils.py:39: DeprecationWarning: Attribute n is deprecated and will be removed in Python 3.14; use value instead
     return node.n
@@ -15,4 +21,28 @@ tests/test_predictive_maintenance.py: 10 warnings
     warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-37 passed, 61 warnings in 10.29s
+------------------------------- measured metrics -------------------------------
+data_quality.psi_injected_drift                  7.868952 
+data_quality.psi_same_distribution               0.014248 
+idempotency.max_probability_diff_across_retrains 0.0 
+integration.batch_latency_per_reading            16.672 ms
+integration.single_predict_latency               336.43 ms
+ml_inference.p_unstable_degraded_reading         0.621866 
+ml_inference.p_unstable_healthy_reading          0.001155 
+ml_training.logloss_first_stage                  0.584911 
+ml_training.logloss_last_stage                   0.134131 
+ml_training.majority_baseline                    0.634 
+ml_training.pipeline_accuracy                    0.914 
+performance.artifact_size.condition_model.joblib 58.815018 MB
+performance.artifact_size.stability_model.joblib 0.55877 MB
+performance.batch_per_reading_latency            0.262681 ms
+performance.prediction_peak_memory               0.141579 MB
+performance.single_inference_median_latency      41.848847 ms
+rag.knowledge_base_documents                     7.0 
+rag.retrieval_relevance.accumulator_pressure     0.725 
+rag.retrieval_relevance.cooler_condition         0.583 
+rag.retrieval_relevance.pump_leakage             0.618 
+unit.robustness_accuracy_retention               0.980159 
+unit.synthetic_model_accuracy                    0.84 
+metrics written to /home/aman/Documents/M.TECH Data /Semester 3/SWML/Assignment 2/heavy-machinery-predictive-maintenance-pipeline/tests/metrics_report.json
+49 passed, 491 warnings in 22.33s

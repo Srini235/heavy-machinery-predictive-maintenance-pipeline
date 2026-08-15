@@ -94,14 +94,18 @@ Open **http://localhost:5173**.
   pip install -r requirements-notebook.txt
   jupyter notebook notebook/105.ipynb
   ```
-- **Tests** (37 tests — unit, integration, ML training/inference, data validation).
+- **Tests** (49 tests in 8 classified suites: unit, integration, ml_training,
+  ml_inference, data_quality, rag, idempotency, performance).
   The API integration tests import the FastAPI app and load trained artifacts,
   so install both requirement sets and train once first:
   ```bash
   pip install -r requirements-api.txt -r requirements-notebook.txt httpx
   python3 train_and_save.py          # only needed if model_registry/ doesn't exist yet
-  python3 -m pytest tests/ -q        # 37 passed
+  python3 -m pytest tests/ -q        # 49 passed
+  python3 -m pytest -m ml_inference -q   # run one classification only
   ```
+  Measured metrics (accuracies, PSI, latency, memory) are logged during the run
+  and written to `tests/metrics_report.json`.
 - **Lint gates** (kept clean; enforced by CI — reports in `docs/lint/`):
   ```bash
   pip install flake8 black isort
@@ -119,6 +123,11 @@ Open **http://localhost:5173**.
 | React web app | http://localhost:5173 | 5173 |
 | FastAPI backend | http://localhost:8000 | 8000 |
 | API interactive docs | http://localhost:8000/docs | 8000 |
+
+API endpoints: `GET /health`, `POST /predict` (single reading), and
+`POST /predict/batch` (fleet-scale: 1–1000 readings per request, vectorized).
+All POST endpoints take the API key in the `x-api-key` header (default dev key
+`fleet-ops-secret-key`, override with the `HYDRAULICS_API_KEY` env var).
 
 ## Troubleshooting
 

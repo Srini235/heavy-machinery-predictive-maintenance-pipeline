@@ -25,6 +25,10 @@ from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from tests._metrics import record_metric
+
+pytestmark = pytest.mark.ml_inference
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "hydraulic_fleet_telemetry.csv"
 
@@ -59,9 +63,9 @@ def _make_preprocessor():
 
 
 @pytest.fixture(scope="module")
-def data():
-    df = pd.read_csv(DATA)
-    return df.sample(n=2500, random_state=7)
+def data(telemetry):
+    # Sampling criteria documented in tests/conftest.py (fixed seed, 2500 rows)
+    return telemetry.sample(n=2500, random_state=7)
 
 
 @pytest.fixture(scope="module")
@@ -160,6 +164,8 @@ def test_degraded_sensors_do_not_lower_risk(stability_model, healthy_reading):
     unstable_idx = list(stability_model.classes_).index(1)
     p_healthy = stability_model.predict_proba(healthy_reading)[0, unstable_idx]
     p_degraded = stability_model.predict_proba(degraded)[0, unstable_idx]
+    record_metric("ml_inference.p_unstable_healthy_reading", p_healthy)
+    record_metric("ml_inference.p_unstable_degraded_reading", p_degraded)
     assert (
         p_degraded >= p_healthy
     ), f"risk fell after degradation: healthy={p_healthy:.3f} degraded={p_degraded:.3f}"

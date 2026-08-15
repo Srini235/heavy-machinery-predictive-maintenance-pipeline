@@ -3,6 +3,7 @@ stages:
     cmd: python train_and_save.py
     deps:
       - train_and_save.py
+      - src/ml/train.py
       - data/hydraulic_fleet_telemetry.csv
       - src/core/model_registry.py
       - src/security_layer.py

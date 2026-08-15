@@ -33,6 +33,7 @@ from src.security_layer import (
     SecureInferenceGateway,
     SecurityError,
     compute_file_sha256,
+    validate_sensor_payload,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -146,6 +147,41 @@ class PredictionResponse(BaseModel):
     latency_ms: float
 
 
+class BatchPredictionRequest(BaseModel):
+    readings: list[SensorReading] = Field(..., min_length=1, max_length=1000)
+
+
+class BatchItemResult(BaseModel):
+    components: list[ComponentResult]
+    stability: str
+    flagged_component: str | None
+
+
+class BatchPredictionResponse(BaseModel):
+    results: list[BatchItemResult]
+    count: int
+    latency_ms: float
+    latency_per_reading_ms: float
+
+
+def _resolve_components(cond_pred) -> tuple[list[ComponentResult], str | None]:
+    """Map raw condition-model classes to per-component results + worst offender."""
+    components, worst = [], None
+    worst_sev = 0
+    for i, target in enumerate(TARGETS):
+        cls = int(cond_pred[i])
+        healthy = cls == HEALTHY[target]
+        components.append(
+            ComponentResult(
+                component=target, predicted_class=cls, status="healthy" if healthy else "attention"
+            )
+        )
+        sev = SEVERITY.get(target, {}).get(cls, 0)
+        if not healthy and sev > worst_sev:
+            worst_sev, worst = sev, target
+    return components, worst
+
+
 @app.get("/health")
 def health():
     return {
@@ -190,19 +226,7 @@ def predict(reading: SensorReading, x_api_key: str = Header(default=API_KEY)):
     latency = round((perf_counter() - t0) * 1000, 2)
 
     # Filter 5: Maintenance Advisor Severity Resolution & RAG Enrichment
-    components, worst = [], None
-    worst_sev = 0
-    for i, target in enumerate(TARGETS):
-        cls = int(cond_pred[i])
-        healthy = cls == HEALTHY[target]
-        components.append(
-            ComponentResult(
-                component=target, predicted_class=cls, status="healthy" if healthy else "attention"
-            )
-        )
-        sev = SEVERITY.get(target, {}).get(cls, 0)
-        if not healthy and sev > worst_sev:
-            worst_sev, worst = sev, target
+    components, worst = _resolve_components(cond_pred)
 
     procedure = guidance = llm = None
     if worst:
@@ -224,4 +248,61 @@ def predict(reading: SensorReading, x_api_key: str = Header(default=API_KEY)):
         repair_guidance=guidance,
         llm_recommendation=llm,
         latency_ms=latency,
+    )
+
+
+@app.post("/predict/batch", response_model=BatchPredictionResponse)
+def predict_batch(request: BatchPredictionRequest, x_api_key: str = Header(default=API_KEY)):
+    """Vectorized fleet-scale inference: N readings, ONE model call per model.
+
+    Scalability path: per-row Python overhead (validation aside) is constant —
+    the heavy lifting is a single vectorized sklearn predict over the whole
+    frame, so throughput grows with batch size instead of request count. The
+    service itself is stateless (models are read-only after startup), so it
+    also scales horizontally behind a load balancer.
+    """
+    t0 = perf_counter()
+    n = len(request.readings)
+    logger.info("Received batch prediction request with %d readings", n)
+
+    try:
+        _auth.authenticate(x_api_key)
+        _rate.check("frontend-batch")
+        rows = []
+        for i, reading in enumerate(request.readings):
+            payload = reading.model_dump()
+            machine_type = payload.pop("machine_type")
+            try:
+                clean = validate_sensor_payload(payload, bounds=HYDRAULIC_BOUNDS)
+            except SecurityError as e:
+                raise SecurityError(f"reading[{i}]: {e}") from e
+            clean["machine_type"] = machine_type
+            rows.append([clean[c] for c in FEATURES])
+    except SecurityError as e:
+        logger.warning("Batch prediction blocked: %s", str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+    X = pd.DataFrame(rows, columns=FEATURES)
+    cond_preds = _condition_model.predict(X)  # one vectorized call for all N rows
+    stab_preds = _stability_model.predict(X)
+
+    results = []
+    for cond_pred, stab in zip(cond_preds, stab_preds):
+        components, worst = _resolve_components(cond_pred)
+        results.append(
+            BatchItemResult(
+                components=components,
+                stability="unstable" if int(stab) == 1 else "stable",
+                flagged_component=worst,
+            )
+        )
+
+    latency = round((perf_counter() - t0) * 1000, 2)
+    _audit.record("frontend-batch", "predict_batch", f"n={n}")
+    logger.info("Batch prediction completed: n=%d latency=%.2fms", n, latency)
+    return BatchPredictionResponse(
+        results=results,
+        count=n,
+        latency_ms=latency,
+        latency_per_reading_ms=round(latency / n, 3),
     )
