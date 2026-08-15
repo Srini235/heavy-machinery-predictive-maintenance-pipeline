@@ -1,10 +1,13 @@
 """
-Tests for the Predictive-Maintenance-for-Mobile-Hydraulics solution.
+Unit tests for the Predictive-Maintenance-for-Mobile-Hydraulics solution.
 
 Author: Aman Kushwah (2024AC05064) — Group 105
 
-Covers the model pipeline and the application-wide security layer.
-Run from the repo root:   pytest -q
+Covers the model pipeline quality requirements and the application-wide
+security layer in isolation (no API, no RAG — those live in
+`test_api_integration.py` and `test_rag_advisor.py` respectively).
+
+Run from the repo root:   pytest -m unit -q
 """
 
 import math
@@ -12,18 +15,10 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
-from fastapi.testclient import TestClient
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
-from src.api.server import app
-from src.maintenance_advisor import (
-    Document,
-    MaintenanceAdvisor,
-    TfidfRetriever,
-    load_knowledge_base,
-)
 from src.security_layer import (
     ApiKeyAuthenticator,
     AuditTrail,
@@ -33,6 +28,9 @@ from src.security_layer import (
     validate_sensor_payload,
     verify_model_integrity,
 )
+from tests._metrics import record_metric
+
+pytestmark = pytest.mark.unit
 
 
 # --------------------------------------------------------------------------- #
@@ -77,6 +75,7 @@ def trained(dataset):
 def test_model_accuracy_is_reasonable(trained):
     model, Xte, yte = trained
     acc = accuracy_score(yte, model.predict(Xte))
+    record_metric("unit.synthetic_model_accuracy", acc)
     assert acc > 0.80, f"accuracy too low: {acc:.3f}"
 
 
@@ -90,6 +89,7 @@ def test_robustness_to_corrupted_sensors(trained):
     corrupt = corrupt.mask(mask, corrupt + rng.normal(0, corrupt.std().values, corrupt.shape))
     corrupt = corrupt.fillna(corrupt.median())
     degraded = accuracy_score(yte, model.predict(corrupt))
+    record_metric("unit.robustness_accuracy_retention", degraded / clean)
     assert degraded / clean >= 0.90, "model not robust enough to corruption"
 
 
@@ -173,73 +173,3 @@ def test_rate_limiter_recovers_after_window():
         rl.check("c", now=0.2)
     # after the window slides past, calls are allowed again
     assert rl.check("c", now=2.0) is True
-
-
-# --------------------------------------------------------------------------- #
-# API integration tests
-# --------------------------------------------------------------------------- #
-
-
-def test_health_endpoint_is_alive():
-    client = TestClient(app)
-    response = client.get("/health")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "healthy"
-    assert "targets" in body
-    assert isinstance(body["machine_types"], list)
-
-
-def test_predict_endpoint_rejects_bad_api_key():
-    client = TestClient(app)
-    payload = {
-        "operating_hours": 1000,
-        "pressure_mean_bar": 150.0,
-        "pressure_std_bar": 5.0,
-        "flow_mean_lpm": 8.0,
-        "oil_temp_mean_c": 75.0,
-        "vibration_rms_mms": 5.0,
-        "motor_power_kw": 20.0,
-        "pump_speed_mean_rpm": 1200.0,
-        "cooling_efficiency_pct": 60.0,
-        "machine_type": "Excavator",
-    }
-    response = client.post("/predict", json=payload, headers={"x-api-key": "bad-key"})
-    assert response.status_code == 400
-    assert response.json()["detail"].strip().lower() == "invalid api key"
-
-
-# --------------------------------------------------------------------------- #
-# RAG Maintenance Advisor tests
-# --------------------------------------------------------------------------- #
-def test_knowledge_base_loads():
-    kb = load_knowledge_base()
-    assert len(kb) >= 5
-    assert all(isinstance(d, Document) and d.text for d in kb)
-
-
-def test_retriever_ranks_relevant_doc_first():
-    retriever = TfidfRetriever().add(
-        [
-            Document("Pump", "internal pump leakage falling flow rate volumetric efficiency"),
-            Document("Cooler", "cooler efficiency drop high oil temperature thermal load"),
-        ]
-    )
-    hits = retriever.retrieve("pump leakage low flow", k=1)
-    assert hits[0][0].title == "Pump"
-    assert hits[0][1] > 0
-
-
-@pytest.mark.parametrize(
-    "component,expected_keyword",
-    [
-        ("pump_leakage", "pump"),
-        ("cooler_condition", "cooler"),
-        ("accumulator_pressure", "accumulator"),
-    ],
-)
-def test_advisor_retrieves_matching_procedure(component, expected_keyword):
-    advisor = MaintenanceAdvisor()
-    result = advisor.advise(component, k=1)[0]
-    assert expected_keyword in result["procedure"].lower()
-    assert 0.0 <= result["relevance"] <= 1.0

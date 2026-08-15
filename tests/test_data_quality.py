@@ -16,7 +16,6 @@ Run from the repo root:   pytest tests/test_data_quality.py -q
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from src.quality import (
@@ -27,16 +26,14 @@ from src.quality import (
     validate_schema,
 )
 from src.quality.data_quality import run_all_checks
+from tests._metrics import record_metric
+
+pytestmark = pytest.mark.data_quality
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "hydraulic_fleet_telemetry.csv"
 
 NUMERIC = ["pressure_mean_bar", "flow_mean_lpm", "oil_temp_mean_c", "vibration_rms_mms"]
-
-
-@pytest.fixture(scope="module")
-def telemetry():
-    return pd.read_csv(DATA)
 
 
 # --------------------------------------------------------------------------- #
@@ -91,6 +88,7 @@ def test_psi_near_zero_for_same_distribution(telemetry):
     psi = compute_psi(
         reference["pressure_mean_bar"].to_numpy(), current["pressure_mean_bar"].to_numpy()
     )
+    record_metric("data_quality.psi_same_distribution", psi)
     assert psi < 0.10, f"identical distributions reported PSI={psi:.3f}"
 
 
@@ -100,6 +98,7 @@ def test_psi_detects_injected_drift(telemetry):
     shifted["oil_temp_mean_c"] = shifted["oil_temp_mean_c"] + 25.0  # cooling failure fleet-wide
 
     psi = detect_drift(reference, shifted, NUMERIC)
+    record_metric("data_quality.psi_injected_drift", psi["oil_temp_mean_c"])
     assert psi["oil_temp_mean_c"] > 0.25, "large temperature shift not flagged as drift"
     assert psi["pressure_mean_bar"] < 0.10, "untouched feature wrongly flagged"
 

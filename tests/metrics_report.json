@@ -1,0 +1,90 @@
+{
+  "integration.single_predict_latency": {
+    "value": 336.43,
+    "unit": "ms"
+  },
+  "integration.batch_latency_per_reading": {
+    "value": 16.672,
+    "unit": "ms"
+  },
+  "data_quality.psi_same_distribution": {
+    "value": 0.014248,
+    "unit": ""
+  },
+  "data_quality.psi_injected_drift": {
+    "value": 7.868952,
+    "unit": ""
+  },
+  "idempotency.max_probability_diff_across_retrains": {
+    "value": 0.0,
+    "unit": ""
+  },
+  "ml_inference.p_unstable_healthy_reading": {
+    "value": 0.001155,
+    "unit": ""
+  },
+  "ml_inference.p_unstable_degraded_reading": {
+    "value": 0.621866,
+    "unit": ""
+  },
+  "ml_training.logloss_first_stage": {
+    "value": 0.584911,
+    "unit": ""
+  },
+  "ml_training.logloss_last_stage": {
+    "value": 0.134131,
+    "unit": ""
+  },
+  "ml_training.pipeline_accuracy": {
+    "value": 0.914,
+    "unit": ""
+  },
+  "ml_training.majority_baseline": {
+    "value": 0.634,
+    "unit": ""
+  },
+  "performance.single_inference_median_latency": {
+    "value": 41.848847,
+    "unit": "ms"
+  },
+  "performance.batch_per_reading_latency": {
+    "value": 0.262681,
+    "unit": "ms"
+  },
+  "performance.prediction_peak_memory": {
+    "value": 0.141579,
+    "unit": "MB"
+  },
+  "performance.artifact_size.condition_model.joblib": {
+    "value": 58.815018,
+    "unit": "MB"
+  },
+  "performance.artifact_size.stability_model.joblib": {
+    "value": 0.55877,
+    "unit": "MB"
+  },
+  "unit.synthetic_model_accuracy": {
+    "value": 0.84,
+    "unit": ""
+  },
+  "unit.robustness_accuracy_retention": {
+    "value": 0.980159,
+    "unit": ""
+  },
+  "rag.knowledge_base_documents": {
+    "value": 7.0,
+    "unit": ""
+  },
+  "rag.retrieval_relevance.pump_leakage": {
+    "value": 0.618,
+    "unit": ""
+  },
+  "rag.retrieval_relevance.cooler_condition": {
+    "value": 0.583,
+    "unit": ""
+  },
+  "rag.retrieval_relevance.accumulator_pressure": {
+    "value": 0.725,
+    "unit": ""
+  }
+}

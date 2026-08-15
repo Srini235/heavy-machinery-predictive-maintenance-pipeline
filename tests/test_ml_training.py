@@ -16,7 +16,6 @@ Run from the repo root:   pytest tests/test_ml_training.py -q
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
@@ -24,6 +23,10 @@ from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+from tests._metrics import record_metric
+
+pytestmark = pytest.mark.ml_training
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "hydraulic_fleet_telemetry.csv"
@@ -43,9 +46,9 @@ CATEGORICAL = ["machine_type"]
 
 
 @pytest.fixture(scope="module")
-def telemetry_sample():
-    df = pd.read_csv(DATA)
-    return df.sample(n=2000, random_state=42)
+def telemetry_sample(telemetry):
+    # Sampling criteria documented in tests/conftest.py (fixed seed, 2000 rows)
+    return telemetry.sample(n=2000, random_state=42)
 
 
 def test_model_can_overfit_small_batch(telemetry_sample):
@@ -70,6 +73,8 @@ def test_training_loss_decreases_with_iterations(telemetry_sample):
     model.fit(X, y)
 
     losses = [log_loss(y, proba) for proba in model.staged_predict_proba(X)]
+    record_metric("ml_training.logloss_first_stage", losses[0])
+    record_metric("ml_training.logloss_last_stage", losses[-1])
     assert losses[-1] < losses[0], "training loss did not decrease"
     # loss should be monotonically non-increasing for a gradient booster on train data
     assert all(b <= a + 1e-9 for a, b in zip(losses, losses[1:])), "loss increased mid-training"
@@ -99,4 +104,6 @@ def test_production_pipeline_beats_majority_baseline(telemetry_sample):
     pipeline.fit(X_tr, y_tr)
     acc = accuracy_score(y_te, pipeline.predict(X_te))
     majority = float(np.mean(y_te == y_te.mode()[0]))
+    record_metric("ml_training.pipeline_accuracy", acc)
+    record_metric("ml_training.majority_baseline", majority)
     assert acc > majority, f"pipeline acc {acc:.3f} did not beat majority baseline {majority:.3f}"
