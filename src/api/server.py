@@ -23,8 +23,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from src.rag.maintenance_advisor import MaintenanceAdvisor
 from src.core.model_registry import ModelRegistry
+from src.rag.maintenance_advisor import MaintenanceAdvisor
 from src.security.security_layer import (
     HYDRAULIC_BOUNDS,
     ApiKeyAuthenticator,

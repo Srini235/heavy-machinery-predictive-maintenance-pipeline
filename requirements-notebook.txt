@@ -20,3 +20,4 @@ graphviz>=0.20
 # notebook UI (any recent version is fine)
 notebook>=7.0
 ipykernel>=6.0
+nbformat>=5.0
