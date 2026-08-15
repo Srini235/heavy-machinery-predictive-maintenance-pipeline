@@ -126,7 +126,7 @@ and demonstrated below.
 
 SECURITY_DEMO = r'''import sys, os, joblib
 sys.path.insert(0, ".")
-from src.security_layer import (validate_sensor_payload, HYDRAULIC_BOUNDS, ApiKeyAuthenticator,
+from src.security.security_layer import (validate_sensor_payload, HYDRAULIC_BOUNDS, ApiKeyAuthenticator,
     RateLimiter, AuditTrail, compute_file_sha256, verify_model_integrity, SecurityError)
 
 # a valid per-cycle hydraulic reading (same 9-sensor schema the model + API use)
@@ -190,7 +190,7 @@ stage of a Retrieval-Augmented Generation (RAG) workflow.
 
 RAG_DEMO = r'''import sys
 sys.path.insert(0, ".")
-from src.maintenance_advisor import MaintenanceAdvisor, load_knowledge_base
+from src.rag.maintenance_advisor import MaintenanceAdvisor, load_knowledge_base
 
 kb = load_knowledge_base()
 print(f"Knowledge base loaded: {len(kb)} maintenance procedures\n")

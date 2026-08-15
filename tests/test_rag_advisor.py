@@ -8,7 +8,7 @@ Run from the repo root:   pytest -m rag -q
 
 import pytest
 
-from src.maintenance_advisor import (
+from src.rag.maintenance_advisor import (
     Document,
     MaintenanceAdvisor,
     TfidfRetriever,

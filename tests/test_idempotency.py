@@ -19,8 +19,8 @@ import numpy as np
 import pytest
 
 import src.ml.train as train_mod
-from src.model_registry import ModelArtifact, ModelRegistry
-from src.security_layer import compute_file_sha256
+from src.core.model_registry import ModelArtifact, ModelRegistry
+from src.security.security_layer import compute_file_sha256
 from tests._metrics import record_metric
 
 pytestmark = pytest.mark.idempotency
